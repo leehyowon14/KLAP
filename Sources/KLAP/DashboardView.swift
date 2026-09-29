@@ -9,7 +9,6 @@ struct DashboardView: View {
     @ViewState<[String]> private var proposedIDs = []
     @ViewState<Bool> private var showPeriodInfo = false
     @ViewState<Bool> private var showChanges = false
-    @ViewState<Bool> private var confirmStudy = false
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment:.center) {
@@ -77,8 +76,8 @@ struct DashboardView: View {
                 Button { if model.studying { model.cancel() }; NSApp.terminate(nil) } label: { Label("종료", systemImage: "power") }.buttonStyle(.borderless).fixedSize().help("KLAP 종료").accessibilityLabel("KLAP 종료")
             }
         }.tint(Theme.accent).foregroundStyle(Theme.ink).buttonStyle(FormButtonStyle(compact:true)).padding(20).frame(maxWidth:.infinity,maxHeight:.infinity)
-        .allowsHitTesting(model.boardPresentation == nil)
-        .accessibilityHidden(model.boardPresentation != nil)
+        .allowsHitTesting(model.boardPresentation == nil && !model.studyConfirmationPresented)
+        .accessibilityHidden(model.boardPresentation != nil || model.studyConfirmationPresented)
         .overlay {
             if let post=model.boardPresentation {
                 BoardOverlay(onClose:{ model.boardPresentation=nil }) {
@@ -87,15 +86,33 @@ struct DashboardView: View {
                 }
             }
         }
-        .onChange(of:model.notificationNavigation) { _ in showChanges=false;showPeriodInfo=false;confirmStudy=false }
+        .onChange(of:model.notificationNavigation) { _ in showChanges=false;showPeriodInfo=false;model.studyConfirmationPresented=false }
         .onChange(of:model.requestedLecture) { id in
             if let id { propose([id]);model.requestedLecture=nil }
         }
-        .alert("선택한 강의를 자동 수강할까요?",isPresented:$confirmStudy) {
-            Button("취소",role:.cancel) {}
-            Button("\(proposedIDs.count)개 수강 시작") { Task { await model.attend(proposedIDs) } }
-        } message: { Text("수강 가능한 강의 \(proposedIDs.count)개를 순서대로 처리합니다. 팝오버를 닫아도 계속되며 진행 화면에서 취소할 수 있습니다.") }
+        .overlay {
+            if model.studyConfirmationPresented {
+                BoardOverlay(onClose:{ model.studyConfirmationPresented=false }) {
+                    VStack(alignment:.leading,spacing:16) {
+                        Text("선택한 강의를 자동 수강할까요?").font(.headline)
+                        Text("수강 가능한 강의 \(proposedIDs.count)개를 순서대로 처리합니다. 팝오버를 닫아도 계속되며 진행 화면에서 취소할 수 있습니다.").font(.callout)
+                        HStack {
+                            Button("취소") { model.studyConfirmationPresented=false }.keyboardShortcut(.cancelAction)
+                            Spacer()
+                            Button("\(proposedIDs.count)개 수강 시작") {
+                                let ids=proposedIDs
+                                model.studyConfirmationPresented=false
+                                Task { await model.attend(ids) }
+                            }.keyboardShortcut(.defaultAction)
+                        }
+                    }.padding(20).frame(width:300)
+                        .background(Theme.surface,in:RoundedRectangle(cornerRadius:16))
+                        .buttonStyle(FormButtonStyle(compact:true)).foregroundStyle(Theme.ink)
+                }
+            }
+        }
     }
+
     private var login: some View {
         VStack(alignment:.leading,spacing:8) {
             Text("KLAS 로그인").font(.headline)
@@ -121,11 +138,13 @@ struct DashboardView: View {
 
             }.toggleStyle(.switch).controlSize(.small).padding(16)
                 .background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
+            NotificationSettings(model:model,service:model.contentNotifications)
             VStack(alignment:.leading,spacing:12) {
                 Text("등록 위치").font(.headline)
                 Text("시간표·학사일정은 캘린더에, 과제·강의 마감은 미리 알림에 등록합니다.").font(.caption).foregroundStyle(.secondary)
                 DestinationSettings(model:model,setup:model.setup)
             }.frame(maxWidth:.infinity,alignment:.leading).padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
+            UpdateSettings(updater:model.updater)
             VStack(alignment:.leading,spacing:12) {
                 Text("계정").font(.headline)
                 settingsRow(!model.loggedOut && model.snapshot.timetable != nil ? "계정 변경" : "계정 로그인",icon:"person.crop.circle") { model.showSettings=false;model.showLogin=true;model.selectedCourse=nil }
@@ -133,8 +152,6 @@ struct DashboardView: View {
                 Button("로그아웃",role:.destructive) { model.logout() }.buttonStyle(.plain).foregroundStyle(Theme.accent).disabled(model.busy)
                 Text("자동 갱신을 중단합니다. CLI 저장 계정과 기존 일정은 유지됩니다.").font(.caption).foregroundStyle(.secondary)
             }.frame(maxWidth:.infinity,alignment:.leading).padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
-            NotificationSettings(model:model,service:model.contentNotifications)
-            UpdateSettings(updater:model.updater)
         }.font(.callout)
     }
     private func settingsRow(_ title:String,icon:String,action:@escaping () -> Void) -> some View {
@@ -254,5 +271,5 @@ struct DashboardView: View {
             }
         }
     }
-    private func propose(_ ids:[String]) { proposedIDs=ids;confirmStudy=true }
+    private func propose(_ ids:[String]) { proposedIDs=ids;model.studyConfirmationPresented=true }
 }

@@ -28,7 +28,7 @@ struct LectureStatusView: View {
                         (Text("L").foregroundColor(.orange) + Text(" / ").foregroundColor(.gray) + Text("X").foregroundColor(.red)).accessibilityLabel("기간 내 시작, 마감 후 완료")
                     case .unknown: Image(systemName:"circle").foregroundStyle(.gray).help("수강 완료 · 완료 시각이 없어 기간 내 완료 여부를 확인할 수 없습니다")
                     case .pending:
-                        Text("\(time.achieved.map { String(format:"%02d",Int($0)) } ?? "??")/\(time.required.map { String(format:"%02d",Int($0)) } ?? "??")분").foregroundStyle(.gray).monospacedDigit()
+                        Text("\(time.achieved.map { String(Int($0)) } ?? "??")/\(time.required.map { String(Int($0)) } ?? "??")분").foregroundStyle(.gray).monospacedDigit()
                     }
                 }.font(.system(size:12,weight:.semibold))
                 Button("열기") { Task { await model.openLecture(item.id) } }.disabled(model.busy)
