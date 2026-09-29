@@ -10,6 +10,7 @@ struct DashboardView: View {
     @ViewState<Bool> private var showPeriodInfo = false
     @ViewState<Bool> private var showChanges = false
     @ViewState<Bool> private var showAcademic = false
+    @ViewState<Bool> private var showAttendance = false
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment:.center) {
@@ -19,8 +20,8 @@ struct DashboardView: View {
                 if !model.onboarding {
                 if model.busy { ProgressView().controlSize(.small).frame(width:28,height:28) }
                 else { Button { Task { await model.refresh() } } label: { Image(systemName:"arrow.clockwise") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.busy || model.onboarding).help("새로고침").accessibilityLabel("새로고침") }
-                Button { showAcademic=true;showChanges=false;model.showSettings=false } label: { Image(systemName:"calendar") }.buttonStyle(.plain).frame(width:28,height:28).help("학사일정").accessibilityLabel("학사일정")
-                Button { showAcademic=false;showChanges=false;model.showSettings.toggle() } label: { Image(systemName:"gearshape") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.onboarding).help("설정").accessibilityLabel("설정")
+                Button { showAcademic=true;showAttendance=false;showChanges=false;model.showSettings=false } label: { Image(systemName:"calendar") }.buttonStyle(.plain).frame(width:28,height:28).help("학사일정").accessibilityLabel("학사일정")
+                Button { showAcademic=false;showAttendance=false;showChanges=false;model.showSettings.toggle() } label: { Image(systemName:"gearshape") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.onboarding).help("설정").accessibilityLabel("설정")
                 }
             }
             ScrollView {
@@ -29,6 +30,10 @@ struct DashboardView: View {
                     else if showAcademic {
                         pageHeading("학사일정") { showAcademic=false }
                         AcademicPage(model:model)
+                    }
+                    else if showAttendance {
+                        pageHeading("출석 조회") { showAttendance=false }
+                        AttendancePage(model:model)
                     }
                     else if model.showSettings { settings }
                     else if showChanges { changesPage }
@@ -39,6 +44,7 @@ struct DashboardView: View {
                     else if model.selectedCourse != nil {
                         pageHeading(model.selectedCourse ?? "과목") { model.selectedCourse=nil }
                         CourseInformationView(model:model)
+                        Button {showAttendance=true} label: {Label("출석 조회",systemImage:"checkmark.circle")}
                         if model.studying { studyProgress }
                         courseContent
                     }
@@ -70,7 +76,7 @@ struct DashboardView: View {
                     } else { courseContent }
                     }
                 }.frame(maxWidth:.infinity,alignment:.leading).padding(.bottom,4)
-            }.id(model.onboarding ? "onboarding" : showAcademic ? "academic" : model.showSettings ? "settings" : showChanges ? "changes" : model.showSyllabus ? "syllabus" : model.showLogin ? "login" : model.selectedCourse ?? "home").scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
+            }.id(model.onboarding ? "onboarding" : showAcademic ? "academic" : showAttendance ? "attendance" : model.showSettings ? "settings" : showChanges ? "changes" : model.showSyllabus ? "syllabus" : model.showLogin ? "login" : model.selectedCourse ?? "home").scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
             Rectangle().fill(Theme.line).frame(height:1)
             HStack(spacing:16) {
                 VStack(alignment:.leading,spacing:2) {
@@ -92,7 +98,7 @@ struct DashboardView: View {
                 }
             }
         }
-        .onChange(of:model.notificationNavigation) { _ in showAcademic=false;showChanges=false;showPeriodInfo=false;model.studyConfirmationPresented=false }
+        .onChange(of:model.notificationNavigation) { _ in showAcademic=false;showAttendance=false;showChanges=false;showPeriodInfo=false;model.studyConfirmationPresented=false }
         .onChange(of:model.requestedLecture) { id in
             if let id { propose([id]);model.requestedLecture=nil }
         }
@@ -247,6 +253,7 @@ struct DashboardView: View {
             }
             }
             if model.selectedCourse == nil {
+                Button { showAttendance=true } label: { Label("출석 조회",systemImage:"checkmark.circle") }.font(.caption)
                 ForEach(model.courses) { course in
                     Button { model.selectedCourse=course.name } label: {
                         HStack {
