@@ -7,6 +7,7 @@ struct DashboardView: View {
     @ViewState<String> private var studentID = ""
     @ViewState<String> private var password = ""
     @ViewState<[String]> private var proposedIDs = []
+    @ViewState<Bool> private var showChanges = false
     @ViewState<Bool> private var confirmStudy = false
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -17,26 +18,27 @@ struct DashboardView: View {
                 if model.busy { ProgressView().controlSize(.small) }
                 if !model.onboarding {
                 Button { Task { await model.refresh() } } label: { Image(systemName:"arrow.clockwise") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.busy || model.onboarding).help("새로고침").accessibilityLabel("새로고침")
-                Button { model.showSettings.toggle() } label: { Image(systemName:"gearshape") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.onboarding).help("설정").accessibilityLabel("설정")
+                Button { showChanges=false;model.showSettings.toggle() } label: { Image(systemName:"gearshape") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.onboarding).help("설정").accessibilityLabel("설정")
                 }
             }
             ScrollView {
                 VStack(alignment:.leading,spacing:12) {
                     if model.onboarding { OnboardingView(model:model,setup:model.setup) }
                     else if model.showSettings { settings }
+                    else if showChanges { changesPage }
                     else {
+                    if !model.conflicts.isEmpty { changesLink }
                     HStack { Text("주간 시간표").font(.headline);Spacer();if model.selectedCourse != nil { Button("전체 과목") { model.selectedCourse = nil }.font(.caption) } }
                     WeeklyTimetable(entries:model.snapshot.timetable?.Entries ?? []) { model.selectedCourse = $0 }
                     Divider().padding(.vertical,8)
                     if model.showLogin { login }
-                    if let error = model.error {
+                    if let error = model.error, !error.hasPrefix("KLAS에서 갱신된 항목 ") {
                         Label(error,systemImage:"exclamationmark.triangle").font(.caption).foregroundStyle(.orange).textSelection(.enabled)
                     }
                     if let error=model.reminderCompletionError {
                         Label(error,systemImage:"exclamationmark.triangle").font(.callout).foregroundStyle(.red)
                     }
                     if model.studying { studyProgress }
-                    if !model.conflicts.isEmpty { conflicts }
                     if model.courses.isEmpty {
                         VStack(alignment:.leading,spacing:8) {
                             Text("수업을 연결해 보세요").font(.headline)
@@ -57,7 +59,7 @@ struct DashboardView: View {
                 if !model.onboarding { Button("동기화") { Task { await model.sync() } }.buttonStyle(.borderless).disabled(model.busy) }
                 Button { if model.studying { model.cancel() }; NSApp.terminate(nil) } label: { Label("종료", systemImage: "power") }.buttonStyle(.borderless).fixedSize().help("KLAP 종료").accessibilityLabel("KLAP 종료")
             }
-        }.padding(20).frame(maxWidth:.infinity,maxHeight:.infinity)
+        }.buttonStyle(FormButtonStyle()).padding(20).frame(maxWidth:.infinity,maxHeight:.infinity)
         .alert("선택한 강의를 자동 수강할까요?",isPresented:$confirmStudy) {
             Button("취소",role:.cancel) {}
             Button("\(proposedIDs.count)개 수강 시작") { Task { await model.attend(proposedIDs) } }
@@ -74,12 +76,7 @@ struct DashboardView: View {
     }
     private var settings: some View {
         VStack(alignment:.leading,spacing:8) {
-            HStack {
-                Button { model.showSettings=false } label: { Label("돌아가기",systemImage:"chevron.left") }
-                    .buttonStyle(FormButtonStyle())
-                Spacer()
-                Text("설정").font(.title2.bold())
-            }
+            pageHeading("설정") { model.showSettings=false }
             Divider().padding(.vertical,8)
             Toggle("일정 자동 동기화 · 30분마다",isOn:$model.autoSync)
             Toggle("수강 알림",isOn:$model.notifications)
@@ -100,8 +97,39 @@ struct DashboardView: View {
             Text("전체 큐 예상 남은 시간 · \(StudyTime.minutes(model.queueRemaining))").font(.caption).foregroundStyle(.secondary)
         }.padding(12).background(Color.accentColor.opacity(0.08),in:RoundedRectangle(cornerRadius:10))
     }
+    private func pageHeading(_ title:String, back:@escaping () -> Void) -> some View {
+        Button(action:back) {
+            HStack(spacing:8) {
+                Image(systemName:"chevron.left").font(.headline)
+                Text(title).font(.title2.bold())
+            }.frame(minHeight:44).contentShape(Rectangle())
+        }.buttonStyle(.plain).accessibilityLabel("\(title), 뒤로")
+    }
+    private var changesLink: some View {
+        Button { showChanges=true } label: {
+            HStack(spacing:10) {
+                Image(systemName:"exclamationmark.triangle.fill").font(.title3)
+                VStack(alignment:.leading,spacing:3) {
+                    Text("일정 변경 확인").font(.callout.bold())
+                    Text("확인이 필요한 항목 \(model.conflicts.count)개").font(.caption)
+                }
+                Spacer()
+                Image(systemName:"chevron.right").font(.caption)
+            }.foregroundStyle(.orange).padding(12).frame(maxWidth:.infinity,alignment:.leading)
+                .background(Color.orange.opacity(0.1),in:RoundedRectangle(cornerRadius:8))
+                .contentShape(RoundedRectangle(cornerRadius:8))
+        }.buttonStyle(.plain)
+    }
+    private var changesPage: some View {
+        VStack(alignment:.leading,spacing:16) {
+            pageHeading("일정 변경") { showChanges=false }
+            if model.conflicts.isEmpty {
+                Label("확인할 일정 변경이 없습니다",systemImage:"checkmark.circle").foregroundStyle(.secondary)
+            } else { conflicts }
+        }
+    }
     private var conflicts: some View {
-        VStack(alignment:.leading,spacing:6) {
+        VStack(alignment:.leading,spacing:16) {
             Text("일정 변경 확인 · \(model.conflicts.count)개").font(.headline)
             ForEach(model.conflicts) { conflict in
                 VStack(alignment:.leading) {
