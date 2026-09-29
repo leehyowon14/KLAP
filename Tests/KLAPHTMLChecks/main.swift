@@ -7,8 +7,15 @@ let config = WKWebViewConfiguration()
 config.websiteDataStore = .nonPersistent()
 config.defaultWebpagePreferences.allowsContentJavaScript = false
 let web = WKWebView(frame:NSRect(x:0,y:0,width:420,height:40),configuration:config)
+let renderer = BoardHTMLView(html:"",height:.constant(40))
+let coordinator = renderer.makeCoordinator()
+precondition(!coordinator.allowsDocument(url:BoardHTMLView.Coordinator.documentURL,type:.other,isMainFrame:true))
 final class Check: NSObject, WKNavigationDelegate {
+    func webView(_ webView:WKWebView,decidePolicyFor action:WKNavigationAction,decisionHandler:@escaping (WKNavigationActionPolicy)->Void) {
+        coordinator.webView(webView,decidePolicyFor:action,decisionHandler:decisionHandler)
+    }
     func webView(_ webView:WKWebView,didFinish navigation:WKNavigation!) {
+        precondition(!coordinator.allowsDocument(url:BoardHTMLView.Coordinator.documentURL,type:.other,isMainFrame:true))
         webView.evaluateJavaScript(BoardHTMLView.preparationScript) { _, error in
         precondition(error == nil)
         webView.evaluateJavaScript("""
@@ -35,10 +42,15 @@ final class Check: NSObject, WKNavigationDelegate {
     }
 }
 let check=Check();web.navigationDelegate=check
-web.loadHTMLString(BoardHTMLView.document("""
+coordinator.load("""
 <p id="red" style="color:red;background-color:yellow;font-family:serif !important">강조</p>
 <table><tr><td>A</td><td>B</td></tr></table><p>다음 줄</p>
 <p>https://example.com/test</p><script>window.ran=true</script>
-"""),baseURL:URL(string:"https://klas.kw.ac.kr/"))
+""",in:web)
+for url in [URL(string:"https://example.com/")!,URL(string:"https://klas.kw.ac.kr/other")!,URL(string:"file:///tmp/test")!] {
+    precondition(!coordinator.allowsDocument(url:url,type:.other,isMainFrame:true))
+}
+precondition(!coordinator.allowsDocument(url:BoardHTMLView.Coordinator.documentURL,type:.other,isMainFrame:false))
+precondition(!coordinator.allowsDocument(url:BoardHTMLView.Coordinator.documentURL,type:.linkActivated,isMainFrame:true))
 DispatchQueue.main.asyncAfter(deadline:.now()+20) { fputs("HTML test timeout\n",stderr);exit(1) }
 app.run()

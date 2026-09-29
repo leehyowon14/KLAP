@@ -20,7 +20,7 @@ struct BoardHTMLView: NSViewRepresentable {
         context.coordinator.parent = self
         guard context.coordinator.loaded != html else { return }
         context.coordinator.loaded = html
-        view.loadHTMLString(Self.document(html), baseURL: URL(string: "https://klas.kw.ac.kr/"))
+        context.coordinator.load(html, in:view)
     }
     static func document(_ body: String) -> String {
         """
@@ -59,7 +59,21 @@ struct BoardHTMLView: NSViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate {
         var parent: BoardHTMLView
         var loaded: String?
+        private var awaitingDocument = false
+        static let documentURL = URL(string:"https://klas.kw.ac.kr/")!
         init(_ parent: BoardHTMLView) { self.parent = parent }
+        func load(_ html:String, in webView:WKWebView) {
+            awaitingDocument = true
+            webView.loadHTMLString(BoardHTMLView.document(html),baseURL:Self.documentURL)
+        }
+        func allowsDocument(url:URL?,type:WKNavigationType,isMainFrame:Bool) -> Bool {
+            // loadHTMLString reports its base URL as the initial navigation URL.
+            // Only that app-initiated load may pass; subsequent redirects stay blocked.
+            guard awaitingDocument, isMainFrame, type == .other,
+                  url == Self.documentURL || url?.absoluteString == "about:blank" else {return false}
+            awaitingDocument = false
+            return true
+        }
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             // App-owned evaluation remains available with page JavaScript disabled.
             webView.evaluateJavaScript(BoardHTMLView.preparationScript) { [weak self] value, _ in
@@ -72,7 +86,7 @@ struct BoardHTMLView: NSViewRepresentable {
                 if let url = action.request.url, ["https", "http", "mailto"].contains(url.scheme?.lowercased() ?? "") { NSWorkspace.shared.open(url) }
                 decisionHandler(.cancel)
             } else {
-                decisionHandler(action.request.url?.scheme == "about" ? .allow : .cancel)
+                decisionHandler(allowsDocument(url:action.request.url,type:action.navigationType,isMainFrame:action.targetFrame?.isMainFrame == true) ? .allow : .cancel)
             }
         }
     }
