@@ -43,12 +43,17 @@ struct DestinationSettings: View {
                         .buttonStyle(FormButtonStyle(prominent:true,compact:true)).disabled(model.busy)
                 }
             } else {
-                Button(setup.loading ? "불러오는 중…" : "캘린더·목록 불러오기") { Task { await setup.requestAccess() } }
+                Button(setup.loading ? "불러오는 중…" : "캘린더·미리 알림 권한 요청") { Task { await setup.requestAccess() } }
                     .disabled(setup.loading || model.busy)
+                HStack {
+                    if !setup.calendarAllowed {Button("캘린더 권한 설정") {setup.openPrivacySettings()}}
+                    if !setup.reminderAllowed {Button("미리 알림 권한 설정") {setup.openPrivacySettings(reminders:true)}}
+                }.font(.caption)
             }
             if let error=setup.error ?? saveError { Text(error).font(.caption).foregroundStyle(.red) }
         }.frame(maxWidth:.infinity,alignment:.leading)
-        .task { await setup.requestAccess() }
+        .task { await setup.requestAccess(request:false) }
+        .onReceive(NotificationCenter.default.publisher(for:NSApplication.didBecomeActiveNotification)) { _ in Task {await setup.requestAccess(request:false)} }
         .onChange(of:setup.timetable) { _ in saved=false }
         .onChange(of:setup.academic) { _ in saved=false }
         .onChange(of:setup.reminder) { _ in saved=false }

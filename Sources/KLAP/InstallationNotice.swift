@@ -7,6 +7,24 @@ import AppKit
             path.hasPrefix($0.resolvingSymlinksInPath().standardizedFileURL.path + "/")
         }
     }
+    static func originalURL(_ url:URL, resolve:((URL)->URL?)? = nil)->URL? {
+        guard url.pathComponents.contains("AppTranslocation") else {return url}
+        if let resolve {return resolve(url)}
+        let task=Process(),output=Pipe()
+        task.executableURL=URL(fileURLWithPath:"/usr/bin/security")
+        task.arguments=["translocate-original-path",url.path]
+        task.standardOutput=output;task.standardError=FileHandle.nullDevice
+        do {
+            try task.run()
+            DispatchQueue.global().asyncAfter(deadline:.now()+2) {if task.isRunning {task.terminate()}}
+            let data=output.fileHandleForReading.readDataToEndOfFile();task.waitUntilExit()
+            guard task.terminationStatus==0,let text=String(data:data,encoding:.utf8),
+                  let path=text.split(separator:"\n").last?.trimmingCharacters(in:.whitespaces),path.hasPrefix("/") else {return nil}
+            let original=URL(fileURLWithPath:path)
+            guard !original.pathComponents.contains("AppTranslocation"),FileManager.default.fileExists(atPath:original.path) else {return nil}
+            return original
+        } catch {return nil}
+    }
     // Stage the complete bundle before replacing anything; failed copies leave both apps intact.
     static func install(source:URL, destination:URL, replace:Bool) throws {
         let fm=FileManager.default
@@ -28,7 +46,7 @@ import AppKit
         if exists {try? fm.trashItem(at:backup,resultingItemURL:nil)}
     }
     static func showIfNeeded(continueLaunch:@escaping ()->Void) {
-        let source=Bundle.main.bundleURL
+        guard let source=originalURL(Bundle.main.bundleURL) else {continueLaunch();return}
         guard !isInstalled(source), !UserDefaults.standard.bool(forKey:"installationMoveNoticeShown") else {continueLaunch();return}
         let name=Bundle.main.object(forInfoDictionaryKey:"CFBundleName") as? String ?? "KLAP"
         let fm=FileManager.default

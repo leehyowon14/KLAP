@@ -4,6 +4,13 @@ MainActor.assumeIsolated {
     for (path,expected) in [("/Applications/KLAP.app",true),("/Applications/Utilities/KLAP.app",true),("/Users/test/Applications/KLAP-Dev.app",true),("/Applications-fake/KLAP.app",false),("/Users/test/Downloads/KLAP.app",false),("/Volumes/KLAP/KLAP.app",false),("/Applications/../tmp/KLAP.app",false)] {
         precondition(InstallationNotice.isInstalled(URL(fileURLWithPath:path),home:home)==expected,path)
     }
+    let translocated=URL(fileURLWithPath:"/private/var/folders/test/AppTranslocation/id/d/KLAP.app")
+    let installed=InstallationNotice.originalURL(translocated,resolve:{_ in URL(fileURLWithPath:"/Applications/KLAP.app")})!
+    precondition(InstallationNotice.isInstalled(installed,home:home))
+    let download=InstallationNotice.originalURL(translocated,resolve:{_ in URL(fileURLWithPath:"/Users/test/Downloads/KLAP.app")})!
+    precondition(!InstallationNotice.isInstalled(download,home:home))
+    precondition(InstallationNotice.originalURL(translocated,resolve:{_ in nil})==nil)
+    precondition(InstallationNotice.originalURL(URL(fileURLWithPath:"/Applications/KLAP.app"),resolve:{_ in preconditionFailure()}) != nil)
     let fm=FileManager.default
     let root=fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer {try? fm.removeItem(at:root)}

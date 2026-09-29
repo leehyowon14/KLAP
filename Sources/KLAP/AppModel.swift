@@ -225,6 +225,11 @@ import KLAPCore
     func sync(decisions: [String: String] = [:]) async {
         guard !busy, !loggedOut else { return }
         guard UserDefaults.standard.bool(forKey: "destinationsConfigured") else { onboarding=true;setup.step=1;return }
+        await setup.requestAccess(request:false)
+        guard setup.ready else {
+            message="동기화하려면 캘린더와 미리 알림 권한을 허용해 주세요."
+            error=nil;showSettings=true;return
+        }
         message = "캘린더와 미리 알림 동기화 중…"
         var succeeded = false
         await perform(["Command":"sync", "Decisions":decisions]) { [self] event in
