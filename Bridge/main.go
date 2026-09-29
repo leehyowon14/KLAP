@@ -20,6 +20,8 @@ type request struct {
 	AcademicExisting  bool
 	ReminderExisting  bool
 	Command           string
+	Selector          string
+	TermValue         string
 	ID                string
 	StudentID         string
 	Password          string
@@ -54,6 +56,12 @@ func main() {
 		defer cancel()
 	}
 	switch r.Command {
+	case "syllabus":
+		var v app.SyllabusResult
+		v, err = s.Syllabus(ctx, app.SyllabusOptions{Selector: r.Selector, TermValue: r.TermValue})
+		if err == nil {
+			emit("result", v)
+		}
 	case "notice-detail":
 		var v app.NoticeDetailResult
 		v, err = s.NoticeDetail(ctx, r.ID, app.UserOption{})

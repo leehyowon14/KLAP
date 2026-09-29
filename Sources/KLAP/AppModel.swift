@@ -41,7 +41,21 @@ import KLAPCore
     }
     @Published var studyTitle = ""
     @Published var conflicts: [SyncConflict] = []
-    @Published var selectedCourse: String?
+    @Published var selectedCourse: String? {
+        didSet { if selectedCourse != oldValue { syllabus = nil; syllabusError = nil; showSyllabus = false } }
+    }
+    @Published var syllabus: CourseSyllabus?
+    @Published var syllabusError: String?
+    @Published var showSyllabus = false
+    func loadSyllabus() async {
+        guard !busy, let course = selectedCourse, let term = snapshot.timetable?.Term.value else { return }
+        syllabusError = nil
+        await perform(["Command":"syllabus", "Selector":course, "TermValue":term]) { [self] event in
+            guard event.kind == "result", selectedCourse == course, snapshot.timetable?.Term.value == term else { return }
+            syllabus = try event.decode(SyllabusResult.self).Syllabus
+        }
+        if selectedCourse == course { syllabusError = error }
+    }
     @Published var lastRefresh: Date?
     @Published var lastSync: Date?
     @Published var showSettings = false
