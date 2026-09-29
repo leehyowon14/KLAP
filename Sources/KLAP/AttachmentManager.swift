@@ -49,7 +49,7 @@ import KLAPCore
         window.isReleasedWhenClosed=false
         window.delegate=self
         window.contentView=NSHostingView(rootView:VStack(spacing:0) {
-            HStack { Text(url.lastPathComponent).lineLimit(1); Spacer(); Button("다운로드",action:download) }.padding(12)
+            HStack { Text(url.lastPathComponent).lineLimit(1); Spacer(); Button(action:download) { Image(systemName:"arrow.down.to.line").frame(width:28,height:28) }.buttonStyle(.plain).help("다운로드").accessibilityLabel("다운로드") }.padding(12)
             Divider()
             QuickLookFile(url:url)
         })

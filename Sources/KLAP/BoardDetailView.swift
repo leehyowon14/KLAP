@@ -27,6 +27,7 @@ struct BoardDetailView: View {
                         Text(boardMetadata(detail.Detail.Author,detail.Detail.Registered)).font(.caption).foregroundStyle(.secondary)
                         Divider()
                         Text(detail.Detail.ContentText.isEmpty ? "본문이 없습니다." : detail.Detail.ContentText).lineSpacing(5).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
+                        if let url=originalURL { Link("KLAS에서 원문 보기 ↗",destination:url).font(.caption) }
                         Divider()
                         HStack { Label("첨부파일",systemImage:"paperclip").font(.headline); Text("\(detail.Files?.count ?? 0)").foregroundStyle(.secondary) }
                         if let error=detail.FilesError, !error.isEmpty {
@@ -34,22 +35,29 @@ struct BoardDetailView: View {
                             Button("첨부파일 다시 불러오기") { Task { await load() } }.disabled(model.busy)
                         } else if (detail.Files ?? []).isEmpty { Text("첨부파일이 없습니다.").font(.callout).foregroundStyle(.secondary) }
                         ForEach(detail.Files ?? []) { file in
-                            VStack(alignment:.leading,spacing:10) {
-                                HStack(alignment:.top) {
-                                    Image(systemName:"doc").foregroundStyle(.secondary)
-                                    VStack(alignment:.leading,spacing:4) {
-                                        Text(file.Name).font(.callout.weight(.medium)).textSelection(.enabled).fixedSize(horizontal:false,vertical:true)
-                                        Text(ByteCountFormatter.string(fromByteCount:file.Size,countStyle:.file)).font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    Spacer(minLength:0)
+                            HStack(spacing:10) {
+                                Image(systemName:"doc").font(.system(size:18)).foregroundStyle(.secondary)
+                                VStack(alignment:.leading,spacing:4) {
+                                    Text(file.Name).font(.system(size:13,weight:.medium)).lineLimit(2).help(file.Name).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
+                                    Text(ByteCountFormatter.string(fromByteCount:file.Size,countStyle:.file)).font(.caption).foregroundStyle(.secondary)
                                 }
-                                HStack {
-                                    if transferring == file.id { ProgressView().controlSize(.small); Text("파일을 받는 중…").font(.caption).foregroundStyle(.secondary) }
-                                    Spacer()
-                                    if AttachmentManager.canPreview(file.Name) { Button("미리보기") { Task { await transfer(file,preview:true) } } }
-                                    Button("다운로드") { Task { await transfer(file,preview:false) } }
-                                }.disabled(model.busy || transferring != nil)
-                            }.padding(12).background(Theme.canvas,in:RoundedRectangle(cornerRadius:10))
+                                Spacer(minLength:0)
+                                if transferring == file.id {
+                                    ProgressView().controlSize(.small).frame(width:28,height:28).help("파일을 받는 중…")
+                                } else {
+                                    if AttachmentManager.canPreview(file.Name) {
+                                        Button("미리보기") { Task { await transfer(file,preview:true) } }
+                                            .font(.caption).foregroundStyle(.secondary).buttonStyle(.plain).fixedSize()
+                                            .accessibilityLabel("\(file.Name) 미리보기")
+                                    }
+                                    Button { Task { await transfer(file,preview:false) } } label: {
+                                        Image(systemName:"arrow.down.to.line").font(.system(size:14,weight:.medium)).frame(width:28,height:28).contentShape(Rectangle())
+                                    }.buttonStyle(.plain).help("다운로드").accessibilityLabel("\(file.Name) 다운로드")
+                                }
+                            }.disabled(model.busy || transferring != nil)
+                                .padding(.horizontal,12).padding(.vertical,12)
+                                .background(Theme.canvas.opacity(0.35),in:RoundedRectangle(cornerRadius:10))
+                                .overlay(RoundedRectangle(cornerRadius:10).strokeBorder(Theme.line.opacity(0.4),lineWidth:0.5))
                         }
                         if let fileError { Text(fileError).font(.callout).foregroundStyle(.red).textSelection(.enabled) }
                         if let saved {
@@ -64,6 +72,12 @@ struct BoardDetailView: View {
             }
         }.padding(20).frame(width:460,height:560).background(Theme.surface)
             .task { if detail == nil { await load() } }
+    }
+    private var originalURL:URL? {
+        let board=reference.Kind == "notice" ? "d052b8f845784c639f036b102fdc3023" : "6972896bfe72408eb72926780e85d041"
+        var url=URLComponents(string:"https://klas.kw.ac.kr/std/lis/sport/\(board)/BoardViewStdPage.do")
+        url?.queryItems=[URLQueryItem(name:"selectYearhakgi",value:reference.TermValue),URLQueryItem(name:"selectSubj",value:reference.SubjectID),URLQueryItem(name:"boardNo",value:reference.BoardNo),URLQueryItem(name:"masterNo",value:reference.MasterNo)]
+        return url?.url
     }
     private func load() async {
         loading=true;failure=nil;defer{loading=false}
