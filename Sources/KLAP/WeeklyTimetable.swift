@@ -20,9 +20,13 @@ struct WeeklyTimetable: View {
                 let scale = geometry.size.height / CGFloat(end - start)
                 ZStack(alignment: .topLeading) {
                     Path { path in
-                        for day in 0...days { let x = 32 + CGFloat(day)*width; path.move(to: CGPoint(x:x,y:0));path.addLine(to:CGPoint(x:x,y:geometry.size.height)) }
-                        for period in start...end { let y=CGFloat(period-start)*scale;path.move(to:CGPoint(x:32,y:y));path.addLine(to:CGPoint(x:geometry.size.width,y:y)) }
+                        for day in 1..<days { let x = 32 + CGFloat(day)*width; path.move(to: CGPoint(x:x,y:0));path.addLine(to:CGPoint(x:x,y:geometry.size.height)) }
+                        for period in (start+1)..<end { let y=CGFloat(period-start)*scale;path.move(to:CGPoint(x:32,y:y));path.addLine(to:CGPoint(x:geometry.size.width,y:y)) }
                     }.stroke(Theme.line, lineWidth: 0.75)
+                    RoundedRectangle(cornerRadius:12,style:.continuous)
+                        .strokeBorder(Theme.line,lineWidth:0.75)
+                        .frame(width:geometry.size.width-32,height:geometry.size.height)
+                        .offset(x:32)
                     ForEach(start..<end, id: \.self) { period in
                         Text("\(period)").font(.system(size:9,design:.monospaced)).foregroundStyle(.secondary).offset(x:3,y:CGFloat(period-start)*scale+8)
                     }

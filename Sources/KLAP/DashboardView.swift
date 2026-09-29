@@ -14,7 +14,7 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment:.center) {
                 Image(systemName:"graduationcap.fill").font(.title2).foregroundStyle(Color(nsColor:Theme.tone(50)))
-                VStack(alignment:.leading,spacing:2) { Text("KLAP").font(.title3.bold()); Text(model.snapshot.timetable?.Term.label ?? "나의 캠퍼스").font(.caption).foregroundStyle(.secondary) }
+                VStack(alignment:.leading,spacing:2) { Text(model.snapshot.studentName.map { "\(Bundle.main.object(forInfoDictionaryKey:"CFBundleName") as? String ?? "KLAP") - \($0)" } ?? (Bundle.main.object(forInfoDictionaryKey:"CFBundleName") as? String ?? "KLAP")).font(.title3.bold()).lineLimit(1); Text(model.snapshot.timetable?.Term.label ?? "나의 캠퍼스").font(.caption).foregroundStyle(.secondary) }
                 Spacer()
                 if !model.onboarding {
                 if model.busy { ProgressView().controlSize(.small).frame(width:28,height:28) }
@@ -27,8 +27,13 @@ struct DashboardView: View {
                     if model.onboarding { OnboardingView(model:model,setup:model.setup) }
                     else if model.showSettings { settings }
                     else if showChanges { changesPage }
+                    else if model.showSyllabus {
+                        pageHeading("강의계획서") { model.showSyllabus = false }
+                        SyllabusView(model:model)
+                    }
                     else if model.selectedCourse != nil {
                         pageHeading(model.selectedCourse ?? "과목") { model.selectedCourse=nil }
+                        CourseInformationView(model:model)
                         if model.studying { studyProgress }
                         courseContent
                     }
@@ -60,7 +65,7 @@ struct DashboardView: View {
                     } else { courseContent }
                     }
                 }.frame(maxWidth:.infinity,alignment:.leading).padding(.bottom,4)
-            }.id(model.onboarding ? "onboarding" : model.showSettings ? "settings" : showChanges ? "changes" : model.showLogin ? "login" : model.selectedCourse ?? "home").scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
+            }.id(model.onboarding ? "onboarding" : model.showSettings ? "settings" : showChanges ? "changes" : model.showSyllabus ? "syllabus" : model.showLogin ? "login" : model.selectedCourse ?? "home").scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
             Rectangle().fill(Theme.line).frame(height:1)
             HStack(spacing:16) {
                 VStack(alignment:.leading,spacing:2) {
@@ -72,6 +77,17 @@ struct DashboardView: View {
                 Button { if model.studying { model.cancel() }; NSApp.terminate(nil) } label: { Label("종료", systemImage: "power") }.buttonStyle(.borderless).fixedSize().help("KLAP 종료").accessibilityLabel("KLAP 종료")
             }
         }.tint(Theme.accent).foregroundStyle(Theme.ink).buttonStyle(FormButtonStyle(compact:true)).padding(20).frame(maxWidth:.infinity,maxHeight:.infinity)
+        .allowsHitTesting(model.boardPresentation == nil)
+        .accessibilityHidden(model.boardPresentation != nil)
+        .overlay {
+            if let post=model.boardPresentation {
+                BoardOverlay(onClose:{ model.boardPresentation=nil }) {
+                    BoardDetailView(model:model,reference:post.reference,title:post.title,onClose:{ model.boardPresentation=nil })
+                        .id(post.id)
+                }
+            }
+        }
+        .onChange(of:model.notificationNavigation) { _ in showChanges=false;showPeriodInfo=false;confirmStudy=false }
         .onChange(of:model.requestedLecture) { id in
             if let id { propose([id]);model.requestedLecture=nil }
         }
@@ -94,14 +110,15 @@ struct DashboardView: View {
             pageHeading("설정") { model.showSettings=false }
             VStack(alignment:.leading,spacing:14) {
                 Text("자동화").font(.headline)
+                LoginItemSettings(controller:model.loginItem)
+                Rectangle().fill(Theme.line).frame(height:1)
                 Toggle(isOn:$model.autoSync) {
                     VStack(alignment:.leading,spacing:4) {
                         Text("일정 자동 동기화").font(.callout.weight(.medium))
                         Text("앱 실행 중 30분마다 갱신").font(.caption).foregroundStyle(.secondary)
                     }.frame(maxWidth:.infinity,alignment:.leading)
                 }
-                Rectangle().fill(Theme.line).frame(height:1)
-                Toggle(isOn:$model.notifications) { Text("강의 완료·전환 알림").frame(maxWidth:.infinity,alignment:.leading) }
+
             }.toggleStyle(.switch).controlSize(.small).padding(16)
                 .background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
             VStack(alignment:.leading,spacing:12) {
@@ -116,6 +133,8 @@ struct DashboardView: View {
                 Button("로그아웃",role:.destructive) { model.logout() }.buttonStyle(.plain).foregroundStyle(Theme.accent).disabled(model.busy)
                 Text("자동 갱신을 중단합니다. CLI 저장 계정과 기존 일정은 유지됩니다.").font(.caption).foregroundStyle(.secondary)
             }.frame(maxWidth:.infinity,alignment:.leading).padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
+            NotificationSettings(model:model,service:model.contentNotifications)
+            UpdateSettings(updater:model.updater)
         }.font(.callout)
     }
     private func settingsRow(_ title:String,icon:String,action:@escaping () -> Void) -> some View {
@@ -198,10 +217,11 @@ struct DashboardView: View {
     }
     private var courseContent: some View {
         VStack(alignment:.leading,spacing:10) {
-            HStack {
-                Text(model.selectedCourse == nil ? "과목별 대시보드" : "공지 및 강의").font(.system(size:16,weight:.bold)).lineLimit(1)
+            if model.selectedCourse == nil { HStack {
+                Text("과목별 대시보드").font(.system(size:16,weight:.bold)).lineLimit(1)
                 Spacer()
                 if !model.eligibleIDs.isEmpty { Button("미수강 \(model.eligibleIDs.count)개 수강") { propose(model.eligibleIDs) }.disabled(model.busy) }
+            }
             }
             if model.selectedCourse == nil {
                 ForEach(model.courses) { course in
@@ -217,15 +237,20 @@ struct DashboardView: View {
                     }.buttonStyle(.plain)
                 }
             } else {
-                ForEach((model.snapshot.assignments ?? []).filter{$0.CourseName==model.selectedCourse && !$0.Assignment.Submitted}) { assignment in
-                    Label(assignment.Assignment.Title,systemImage:"checklist").font(.caption)
-                }
-                ForEach((model.snapshot.notices ?? []).filter{$0.CourseName==model.selectedCourse}.prefix(3)) { notice in
-                    Label(notice.Notice.Title,systemImage:"megaphone").font(.caption).foregroundStyle(.secondary)
-                }
+                NoticesView(model:model)
+                MaterialsView(model:model)
+                HStack {
+                    Text("강의").font(.system(size:16,weight:.bold))
+                    Spacer()
+                    if !model.eligibleIDs.isEmpty { Button("미수강 \(model.eligibleIDs.count)개 수강") { propose(model.eligibleIDs) }.disabled(model.busy) }
+                }.padding(.top,12)
                 ForEach(model.lectures) { item in
                     LectureStatusView(item:item,model:model)
                 }
+                ForEach((model.snapshot.assignments ?? []).filter{$0.CourseName==model.selectedCourse && !$0.Assignment.Submitted}) { assignment in
+                    Label(assignment.Assignment.Title,systemImage:"checklist").font(.caption)
+                }
+
             }
         }
     }

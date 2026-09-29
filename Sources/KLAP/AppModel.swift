@@ -5,8 +5,27 @@ import Network
 import KLAPCore
 
 @MainActor final class AppModel: ObservableObject {
+    let attachments = AttachmentManager()
+    let contentNotifications = ContentNotificationService()
+    @Published var newNoticeNotifications = UserDefaults.standard.object(forKey:"newNoticeNotifications") as? Bool ?? true {
+        didSet {UserDefaults.standard.set(newNoticeNotifications,forKey:"newNoticeNotifications");if newNoticeNotifications {requestNotifications()}}
+    }
+    @Published var newLectureNotifications = UserDefaults.standard.object(forKey:"newLectureNotifications") as? Bool ?? true {
+        didSet {UserDefaults.standard.set(newLectureNotifications,forKey:"newLectureNotifications");if newLectureNotifications {requestNotifications()}}
+    }
+    let updater = AppUpdater()
+    let loginItem = LoginItemController()
+    @Published var boardPresentation: BoardPresentation?
     @Published var loggedOut = UserDefaults.standard.bool(forKey:"loggedOut")
     @Published var requestedLecture: String?
+    @Published var noticeDetail: NoticeDetailResult?
+    func loadNotice(_ id: String) async {
+        guard !busy else { return }
+        noticeDetail = nil
+        await perform(["Command":"notice-detail", "ID":id]) { [self] event in
+            if event.kind == "result" { noticeDetail = try event.decode(NoticeDetailResult.self) }
+        }
+    }
     @Published var snapshot = Snapshot()
     @Published var busy = false
     @Published var pendingDecisions: [String:String] = [:]
@@ -33,7 +52,21 @@ import KLAPCore
     }
     @Published var studyTitle = ""
     @Published var conflicts: [SyncConflict] = []
-    @Published var selectedCourse: String?
+    @Published var selectedCourse: String? {
+        didSet { if selectedCourse != oldValue { syllabus = nil; syllabusError = nil; showSyllabus = false } }
+    }
+    @Published var syllabus: CourseSyllabus?
+    @Published var syllabusError: String?
+    @Published var showSyllabus = false
+    func loadSyllabus() async {
+        guard !busy, let course = selectedCourse, let term = snapshot.timetable?.Term.value else { return }
+        syllabusError = nil
+        await perform(["Command":"syllabus", "Selector":course, "TermValue":term]) { [self] event in
+            guard event.kind == "result", selectedCourse == course, snapshot.timetable?.Term.value == term else { return }
+            syllabus = try event.decode(SyllabusResult.self).Syllabus
+        }
+        if selectedCourse == course { syllabusError = error }
+    }
     @Published var lastRefresh: Date?
     @Published var lastSync: Date?
     @Published var showSettings = false
@@ -55,11 +88,17 @@ import KLAPCore
     private var wasOffline = false
     private var cancelled = false
     var reveal: (() -> Void)?
+    @Published var notificationNavigation=UUID()
+    var pendingContentActions:[(String,String)]=[]
+    var handlingContentAction=false
+    var activeContentAction:String?
     var courses: [Course] { snapshot.timetable?.Term.subjList ?? [] }
     var lectures: [LectureItem] { (snapshot.lectures ?? []).filter { selectedCourse == nil || $0.row.CourseName == selectedCourse } }
     var eligibleIDs: [String] { lectures.filter { $0.reason.isEmpty }.map(\.id) }
 
     func start() {
+        contentNotifications.register()
+        if notifications || newNoticeNotifications || newLectureNotifications {requestNotifications()}
         timer = Timer.scheduledTimer(withTimeInterval: 1800, repeats: true) { [weak self] _ in Task { @MainActor in self?.scheduledRefresh() } }
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in Task { @MainActor in self?.scheduledRefresh() } }
         network.pathUpdateHandler = { [weak self] path in
@@ -79,6 +118,7 @@ import KLAPCore
     }
     func logout() {
         guard !busy else { return }
+        contentNotifications.clearDelivered()
         loggedOut=true
         UserDefaults.standard.set(true,forKey:"loggedOut")
         autoSync=false
@@ -112,14 +152,14 @@ import KLAPCore
         await sync()
     }
     func requestNotifications() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        contentNotifications.requestAuthorization()
     }
     private func notify(_ title: String, _ body: String) {
         guard notifications else { return }
         let content = UNMutableNotificationContent(); content.title = title; content.body = body; content.sound = .default
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
-    private func perform(_ request: [String: Any], handle: @escaping (BridgeEvent) throws -> Void) async {
+    func perform(_ request: [String: Any], handle: @escaping (BridgeEvent) throws -> Void) async {
         guard !busy else { return }
         busy = true; error = nil
         defer { busy = false }
@@ -131,16 +171,24 @@ import KLAPCore
             }
         } catch { if self.error == nil && !(studying && cancelled) { self.error = error.localizedDescription } }
     }
-    func refresh() async {
-        guard !busy else { return }
+    @discardableResult func refresh() async -> Snapshot? {
+        guard !busy else { return nil }
         loggedOut=false
         UserDefaults.standard.set(false,forKey:"loggedOut")
         message = "수업과 강의를 불러오는 중…"
         var received = false
+        var notificationSnapshot:Snapshot?
         await perform(["Command":"snapshot"]) { [self] event in
             guard event.kind == "result" else { return }
             let fresh = try event.decode(Snapshot.self)
+            notificationSnapshot=fresh
+            if let account=fresh.account,account != snapshot.account {
+                if snapshot.account != nil {contentNotifications.clearDelivered()}
+                snapshot=Snapshot();selectedCourse=nil
+            }
+            snapshot.account=fresh.account
             if let nextTerm=fresh.timetable?.Term.value, let previousTerm=snapshot.timetable?.Term.value, nextTerm != previousTerm { snapshot=Snapshot();selectedCourse=nil }
+            snapshot.studentName=fresh.studentName
             // Partial failures retain the previous data and remain visibly stale.
             if let value = fresh.timetable { snapshot.timetable = value }
             if let value = fresh.lectures { snapshot.lectures = value }
@@ -151,7 +199,9 @@ import KLAPCore
             error = fresh.errors.isEmpty ? nil : fresh.errors.joined(separator: "\n")
             received = true
         }
+        if let notificationSnapshot {await contentNotifications.process(notificationSnapshot,preferences:{[self] in (newNoticeNotifications,newLectureNotifications)})}
         message = received && error == nil ? "최신 상태입니다" : "갱신하지 못한 정보가 있습니다"
+        return notificationSnapshot
     }
     @discardableResult func login(studentID: String, password: String) async -> Bool {
         guard !busy else { return false }
@@ -193,14 +243,14 @@ import KLAPCore
             NSWorkspace.shared.open(url)
         }
     }
-    func attend(_ ids: [String]) async {
+    func attend(_ ids: [String],expectedAccount:String?=nil) async {
         guard !busy, !ids.isEmpty else { return }
         reminderCompletionError=nil
         cancelled = false; studying = true; requestNotifications()
         studyQueue=ids.reduce(into:[]) { if !$0.contains($1) { $0.append($1) } }
         updateStudyTime(id:studyQueue.first)
         progress = StudyProgress(percent: 0, current: 0, total: ids.count)
-        await perform(["Command":"attend", "IDs":ids]) { [self] event in
+        await perform(["Command":"attend", "IDs":ids,"ExpectedAccount":expectedAccount ?? snapshot.account ?? ""]) { [self] event in
             let value = try event.decode(StudyEvent.self)
             let title = value.title ?? snapshot.lectures?.first(where: { $0.id == value.id })?.row.Lecture.Title ?? "강의"
             switch event.kind {

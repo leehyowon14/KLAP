@@ -22,6 +22,7 @@ private struct MenuBackdrop: NSViewRepresentable {
 /// A rounded menu-bar panel without NSPopover's pointer. The model outlives it.
 @MainActor final class MenuPanel {
     private let window: KeyablePanel
+    private let model: AppModel
     private var pendingShow: DispatchWorkItem?
     private var outsideMonitor: Any?
     private var keyMonitor: Any?
@@ -33,9 +34,9 @@ private struct MenuBackdrop: NSViewRepresentable {
         return abs(window.frame.minX-expected.minX) < 1 && abs(window.frame.maxY-expected.maxY) < 1
     }
     var isVisible: Bool { window.isVisible }
-    var isPresented: Bool { window.isVisible && window.isKeyWindow && NSApp.isActive }
 
     init(model: AppModel) {
+        self.model=model
         window = KeyablePanel(contentRect:NSRect(x:0,y:0,width:540,height:700),styleMask:[.borderless],backing:.buffered,defer:false)
         window.isReleasedWhenClosed = false
         // Visibility is managed by our outside-click handler, not NSPanel's
@@ -93,8 +94,18 @@ private struct MenuBackdrop: NSViewRepresentable {
                     self?.hide()
                 }
             }
-            keyMonitor=NSEvent.addLocalMonitorForEvents(matching:.keyDown) { [weak self] event in
-                if event.keyCode == 53, self?.window.attachedSheet == nil { self?.hide();return nil }
+            keyMonitor=NSEvent.addLocalMonitorForEvents(matching:[.keyDown,.leftMouseDown,.rightMouseDown]) { [weak self, weak button] event in
+                guard let self else { return event }
+                if event.type == .leftMouseDown || event.type == .rightMouseDown {
+                    // Global monitors exclude this app's other windows (e.g. a preview).
+                    if event.window !== self.window, event.window !== button?.window, event.window?.sheetParent !== self.window { self.hide() }
+                    return event
+                }
+                if event.keyCode == 53, event.window === self.window, self.window.attachedSheet == nil {
+                    if self.model.boardPresentation == nil { self.hide();return nil }
+                    // Let the detail view's cancel button handle Escape, including its disabled state.
+                    return event
+                }
                 return event
             }
         }

@@ -13,6 +13,13 @@ import (
 )
 
 type request struct {
+	ExpectedAccount   string
+	Kind              string
+	SubjectID         string
+	BoardNo           string
+	MasterNo          string
+	FileSN            string
+	Directory         string
 	TimetableName     string
 	AcademicName      string
 	ReminderName      string
@@ -20,6 +27,8 @@ type request struct {
 	AcademicExisting  bool
 	ReminderExisting  bool
 	Command           string
+	Selector          string
+	TermValue         string
 	ID                string
 	StudentID         string
 	Password          string
@@ -54,6 +63,45 @@ func main() {
 		defer cancel()
 	}
 	switch r.Command {
+	case "board-read":
+		var data []byte
+		data, err = s.BoardRead(ctx, app.BoardOptions{Kind: r.Kind, TermValue: r.TermValue, SubjectID: r.SubjectID, BoardNo: r.BoardNo, MasterNo: r.MasterNo}, r.FileSN)
+		if err == nil {
+			for offset := 0; offset < len(data); offset += 65536 {
+				end := offset + 65536
+				if end > len(data) {
+					end = len(data)
+				}
+				emit("chunk", data[offset:end])
+			}
+			emit("result", map[string]int{"Bytes": len(data)})
+		}
+	case "board-list", "board-detail", "board-download":
+		opts := app.BoardOptions{Kind: r.Kind, TermValue: r.TermValue, SubjectID: r.SubjectID, BoardNo: r.BoardNo, MasterNo: r.MasterNo}
+		var value any
+		switch r.Command {
+		case "board-list":
+			value, err = s.BoardList(ctx, opts)
+		case "board-detail":
+			value, err = s.BoardDetail(ctx, opts)
+		case "board-download":
+			value, err = s.BoardDownload(ctx, opts, r.FileSN, r.Directory)
+		}
+		if err == nil {
+			emit("result", value)
+		}
+	case "syllabus":
+		var v app.SyllabusResult
+		v, err = s.Syllabus(ctx, app.SyllabusOptions{Selector: r.Selector, TermValue: r.TermValue})
+		if err == nil {
+			emit("result", v)
+		}
+	case "notice-detail":
+		var v app.NoticeDetailResult
+		v, err = s.NoticeDetail(ctx, r.ID, app.UserOption{})
+		if err == nil {
+			emit("result", v)
+		}
 	case "auth":
 		err = s.Authenticate(ctx, r.StudentID, r.Password)
 		if err == nil {
@@ -66,27 +114,40 @@ func main() {
 			emit("result", v)
 		}
 	case "snapshot":
-		result := map[string]any{}
+		users, accountErr := s.Users(ctx)
+		if accountErr != nil {
+			err = accountErr
+			break
+		}
+		user, account, accountErr := notificationAccount(users)
+		if accountErr != nil {
+			err = accountErr
+			break
+		}
+		result := map[string]any{"account": account}
+		if name, nameErr := s.StudentName(ctx, user); nameErr == nil {
+			result["studentName"] = name
+		}
 		problems := []string{}
-		table, e := s.Timetable(ctx, app.TimetableOptions{Refresh: true})
+		table, e := s.Timetable(ctx, app.TimetableOptions{User: user, Refresh: true})
 		if e != nil {
 			problems = append(problems, e.Error())
 		} else {
 			result["timetable"] = table
 		}
-		assignments, e := s.AssignmentList(ctx, app.AssignmentListOptions{Refresh: true})
+		assignments, e := s.AssignmentList(ctx, app.AssignmentListOptions{User: user, Refresh: true})
 		if e != nil {
 			problems = append(problems, e.Error())
 		} else {
 			result["assignments"] = assignments
 		}
-		notices, e := s.NoticeList(ctx, app.NoticeListOptions{Refresh: true})
+		notices, e := s.NoticeList(ctx, app.NoticeListOptions{User: user, Refresh: true})
 		if e != nil {
 			problems = append(problems, e.Error())
 		} else {
 			result["notices"] = notices
 		}
-		lectures, e := s.LectureList(ctx, app.LectureListOptions{Refresh: true})
+		lectures, e := s.LectureList(ctx, app.LectureListOptions{User: user, Refresh: true})
 		if e != nil {
 			problems = append(problems, e.Error())
 		} else {

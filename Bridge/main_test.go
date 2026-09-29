@@ -14,6 +14,9 @@ type fakeAttender struct {
 
 func (f *fakeAttender) AttendLecture(ctx context.Context, id string, o app.LectureAttendOptions) (app.LectureAttendResult, error) {
 	f.calls = append(f.calls, id)
+	if o.User.StudentID != "selected" {
+		panic("account must be pinned")
+	}
 	if !o.RequireEligible {
 		panic("eligibility must be checked")
 	}
@@ -30,7 +33,7 @@ func TestAttendanceQueue(t *testing.T) {
 	f := &fakeAttender{}
 	kinds := []string{}
 	var summary map[string]any
-	err := runAttendance(context.Background(), f, []string{"", "ok", "ok", "fail", "incomplete", "next"}, func(k string, v any) {
+	err := runAttendance(context.Background(), f, []string{"", "ok", "ok", "fail", "incomplete", "next"}, app.UserOption{StudentID: "selected"}, func(k string, v any) {
 		kinds = append(kinds, k)
 		if k == "done" {
 			summary = v.(map[string]any)
@@ -56,7 +59,7 @@ func TestCancelNeverStartsNextLecture(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	f := &fakeAttender{cancel: cancel}
-	err := runAttendance(ctx, f, []string{"one", "two"}, func(k string, _ any) {
+	err := runAttendance(ctx, f, []string{"one", "two"}, app.UserOption{StudentID: "selected"}, func(k string, _ any) {
 		if k == "done" || k == "completed" {
 			t.Fatalf("incorrect event: %s", k)
 		}
@@ -66,7 +69,30 @@ func TestCancelNeverStartsNextLecture(t *testing.T) {
 	}
 }
 func TestEmptyQueue(t *testing.T) {
-	if runAttendance(context.Background(), &fakeAttender{}, []string{""}, func(string, any) { t.Fatal("unexpected event") }) == nil {
+	if runAttendance(context.Background(), &fakeAttender{}, []string{""}, app.UserOption{StudentID: "selected"}, func(string, any) { t.Fatal("unexpected event") }) == nil {
 		t.Fatal("expected empty selection error")
+	}
+}
+
+func TestNotificationAccount(t *testing.T) {
+	rows := []app.UserRow{{User: app.User{StudentID: "inactive"}}, {User: app.User{StudentID: "active"}, Current: true}}
+	user, key, err := notificationAccount(rows)
+	if err != nil || user.StudentID != "active" || len(key) != 64 || key == "active" {
+		t.Fatal("wrong account")
+	}
+	_, again, _ := notificationAccount(rows)
+	if key != again {
+		t.Fatal("unstable identity")
+	}
+	rows[1].User.StudentID = "other"
+	_, other, _ := notificationAccount(rows)
+	if other == key {
+		t.Fatal("accounts collided")
+	}
+	if _, _, err := notificationAccount(nil); err == nil {
+		t.Fatal("missing current account accepted")
+	}
+	if _, _, err := notificationAccount([]app.UserRow{{Current: true}}); err == nil {
+		t.Fatal("empty account accepted")
 	}
 }

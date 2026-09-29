@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>KLAP 업데이트</title>
+        <link>https://github.com/leehyowon14/KLAP</link>
+        <description>KLAP 공식 업데이트</description>
+        <language>ko</language>
+        <item>
+            <title>0.2.0</title>
+            <pubDate>Tue, 29 Sep 2026 20:49:12 +0900</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/leehyowon14/KLAP/releases/download/v0.2.0-beta/KLAP-v0.2.0-beta.zip" length="9499233" type="application/octet-stream" sparkle:edSignature="RXbCJ9StR7jFkGZpE798g9l9Sa4XUZJbWlEKaWnG3S6CaObujwbdP7ZBtJiNXo5upRoPTPfu2cMnD6QlVv3VAA=="/>
+        </item>
+    </channel>
+</rss>

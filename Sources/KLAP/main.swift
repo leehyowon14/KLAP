@@ -27,9 +27,18 @@ import KLAPCore
         model.$progress.sink { [weak self] progress in self?.updateIcon(progress) }.store(in:&subscriptions)
         UNUserNotificationCenter.current().delegate = self
         model.reveal = { [weak self] in self?.show() }
-        if !ProcessInfo.processInfo.arguments.contains("--smoke-test") { model.start() }
-        if !ProcessInfo.processInfo.arguments.contains("--smoke-test") { DispatchQueue.main.async { [weak self] in self?.show() } }
+        if !ProcessInfo.processInfo.arguments.contains("--smoke-test") {
+            let loginLaunch=LoginLaunch.isLoginItem(NSAppleEventManager.shared().currentAppleEvent)
+            InstallationNotice.showIfNeeded { [weak self] in
+                guard let self else {return}
+                self.model.start()
+                self.model.updater.observeActivity(Publishers.CombineLatest3(self.model.$busy,self.model.$studying,self.model.$onboarding).map {$0 || $1 || $2}.eraseToAnyPublisher())
+                self.model.updater.start()
+                if !loginLaunch {DispatchQueue.main.async {self.show()}}
+            }
+        }
     }
+
     func applicationWillTerminate(_ notification: Notification) { if didInitializeModel { model.cancel() } }
     @objc private func toggle() {
         guard let item, let panel else { return }
@@ -37,13 +46,16 @@ import KLAPCore
             let menu=NSMenu()
             let open=menu.addItem(withTitle:"KLAP 열기",action:#selector(openPanel),keyEquivalent:"")
             open.target=self
+            let update=menu.addItem(withTitle:"업데이트 확인…",action:#selector(AppUpdater.check),keyEquivalent:"")
+            update.target=model.updater
+            update.isEnabled=model.updater.canCheck
             menu.addItem(.separator())
             let quit=menu.addItem(withTitle:"KLAP 종료",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q")
             quit.target=NSApp
             NSMenu.popUpContextMenu(menu,with:NSApp.currentEvent!,for:button)
             return
         }
-        if panel.isPresented {panel.hide()} else {show()}
+        if panel.isVisible {panel.hide()} else {show()}
     }
     @objc private func openPanel() { show() }
     func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows flag:Bool)->Bool {
@@ -61,11 +73,28 @@ import KLAPCore
         panel.hide()
         _ = applicationShouldHandleReopen(NSApp,hasVisibleWindows:false)
         let reopened=panel.isVisible
+        model.boardPresentation=BoardPresentation(reference:BoardReference(kind:"notice",term:"test",subject:"test",board:"1",master:"1"),title:"테스트")
+        item.button?.performClick(nil)
+        let detailIconClosed = !panel.isVisible
+        show()
+        panel.hide() // The global outside-click monitor follows this same path.
+        let detailOutsideClosed = !panel.isVisible
+        show()
+        model.boardPresentation=nil
+        NSApp.keyWindow?.resignKey()
+        item.button?.performClick(nil)
+        let inactiveIconClosed = !panel.isVisible
+        var repeatedToggle=true
+        for _ in 0..<4 {
+            item.button?.performClick(nil);repeatedToggle = repeatedToggle && panel.isVisible
+            item.button?.performClick(nil);repeatedToggle = repeatedToggle && !panel.isVisible
+        }
         panel.hide()
         return ["initialized":true,"delegateRetained":NSApp.delegate === self,
                 "accessory":NSApp.activationPolicy() == .accessory,
                 "statusVisible":item.isVisible,"iconPresent":item.button?.image != nil,
                 "statusHasWidth":(item.button?.frame.width ?? 0) > 0,
+                "detailIconClosed":detailIconClosed,"detailOutsideClosed":detailOutsideClosed,"inactiveIconClosed":inactiveIconClosed,"repeatedToggle":repeatedToggle,
                 "panelAnchored":anchored,"firstClickOpened":firstClickOpened,"panelOpened":shown,"reopenOpened":reopened,"panelClosed":!panel.isVisible]
     }
     private func show() {
@@ -94,7 +123,15 @@ import KLAPCore
         }
     }
     nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,willPresent notification:UNNotification,withCompletionHandler completionHandler:@escaping (UNNotificationPresentationOptions)->Void) { completionHandler([.banner,.sound]) }
-    nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,didReceive response:UNNotificationResponse,withCompletionHandler completionHandler:@escaping ()->Void) { Task { @MainActor in self.show();completionHandler() } }
+    nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,didReceive response:UNNotificationResponse,withCompletionHandler completionHandler:@escaping ()->Void) { Task { @MainActor in
+        if response.actionIdentifier != UNNotificationDismissActionIdentifier {
+            self.show()
+            if let token=response.notification.request.content.userInfo[ContentNotificationService.tokenKey] as? String {
+                self.model.receiveContentAction(token:token,action:response.actionIdentifier)
+            }
+        }
+        completionHandler()
+    } }
 }
 MainActor.assumeIsolated {
  let app=NSApplication.shared
