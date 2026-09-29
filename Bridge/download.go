@@ -102,3 +102,28 @@ func downloadConcurrency(value int) int {
 	}
 	return value
 }
+
+func init() {
+	handlers["lecture-download-inventory"] = func(ctx context.Context, s *app.Service, r request) error {
+		if !filepath.IsAbs(r.Directory) {
+			return fmt.Errorf("저장 폴더를 선택해 주세요")
+		}
+		users, err := s.Users(ctx)
+		if err != nil {
+			return err
+		}
+		user, account, err := notificationAccount(users)
+		if err != nil {
+			return err
+		}
+		if r.ExpectedAccount == "" || r.ExpectedAccount != account {
+			return fmt.Errorf("계정이 변경되었습니다")
+		}
+		rows, err := s.DownloadInventory(ctx, app.LectureDownloadAllOptions{User: user, Dir: r.Directory})
+		if err != nil {
+			return err
+		}
+		emit("download-inventory", rows)
+		return nil
+	}
+}
