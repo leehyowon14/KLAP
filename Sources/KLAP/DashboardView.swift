@@ -220,9 +220,7 @@ struct DashboardView: View {
                 ForEach((model.snapshot.assignments ?? []).filter{$0.CourseName==model.selectedCourse && !$0.Assignment.Submitted}) { assignment in
                     Label(assignment.Assignment.Title,systemImage:"checklist").font(.caption)
                 }
-                ForEach((model.snapshot.notices ?? []).filter{$0.CourseName==model.selectedCourse}.prefix(3)) { notice in
-                    Label(notice.Notice.Title,systemImage:"megaphone").font(.caption).foregroundStyle(.secondary)
-                }
+                NoticesView(model:model)
                 ForEach(model.lectures) { item in
                     LectureStatusView(item:item,model:model)
                 }
