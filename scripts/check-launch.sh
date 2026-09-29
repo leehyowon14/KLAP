@@ -1,7 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-python3 - "$PWD/dist/KLAP.app/Contents/MacOS/KLAP" "$PWD/dist/KLAP.app" <<'PY'
+app="${1:-dist/KLAP-Dev.app}"
+executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")
+python3 - "$PWD/$app/Contents/MacOS/$executable" "$PWD/$app" <<'PY'
 import json, pathlib, subprocess, sys, tempfile
 required = {'initialized', 'delegateRetained', 'modelDeferredUntilLaunch', 'accessory', 'statusVisible', 'iconPresent', 'statusHasWidth', 'panelAnchored', 'firstClickOpened', 'panelOpened', 'reopenOpened', 'panelClosed', 'detailIconClosed', 'detailOutsideClosed', 'inactiveIconClosed', 'repeatedToggle'}
 def check(raw):
