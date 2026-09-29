@@ -9,6 +9,7 @@ struct DashboardView: View {
     @ViewState<[String]> private var proposedIDs = []
     @ViewState<Bool> private var showPeriodInfo = false
     @ViewState<Bool> private var showChanges = false
+    @ViewState<Bool> private var showAcademic = false
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment:.center) {
@@ -18,12 +19,17 @@ struct DashboardView: View {
                 if !model.onboarding {
                 if model.busy { ProgressView().controlSize(.small).frame(width:28,height:28) }
                 else { Button { Task { await model.refresh() } } label: { Image(systemName:"arrow.clockwise") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.busy || model.onboarding).help("새로고침").accessibilityLabel("새로고침") }
-                Button { showChanges=false;model.showSettings.toggle() } label: { Image(systemName:"gearshape") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.onboarding).help("설정").accessibilityLabel("설정")
+                Button { showAcademic=true;showChanges=false;model.showSettings=false } label: { Image(systemName:"calendar") }.buttonStyle(.plain).frame(width:28,height:28).help("학사일정").accessibilityLabel("학사일정")
+                Button { showAcademic=false;showChanges=false;model.showSettings.toggle() } label: { Image(systemName:"gearshape") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.onboarding).help("설정").accessibilityLabel("설정")
                 }
             }
             ScrollView {
                 VStack(alignment:.leading,spacing:12) {
                     if model.onboarding { OnboardingView(model:model,setup:model.setup) }
+                    else if showAcademic {
+                        pageHeading("학사일정") { showAcademic=false }
+                        AcademicPage(model:model)
+                    }
                     else if model.showSettings { settings }
                     else if showChanges { changesPage }
                     else if model.showSyllabus {
@@ -64,7 +70,7 @@ struct DashboardView: View {
                     } else { courseContent }
                     }
                 }.frame(maxWidth:.infinity,alignment:.leading).padding(.bottom,4)
-            }.id(model.onboarding ? "onboarding" : model.showSettings ? "settings" : showChanges ? "changes" : model.showSyllabus ? "syllabus" : model.showLogin ? "login" : model.selectedCourse ?? "home").scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
+            }.id(model.onboarding ? "onboarding" : showAcademic ? "academic" : model.showSettings ? "settings" : showChanges ? "changes" : model.showSyllabus ? "syllabus" : model.showLogin ? "login" : model.selectedCourse ?? "home").scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
             Rectangle().fill(Theme.line).frame(height:1)
             HStack(spacing:16) {
                 VStack(alignment:.leading,spacing:2) {
@@ -86,7 +92,7 @@ struct DashboardView: View {
                 }
             }
         }
-        .onChange(of:model.notificationNavigation) { _ in showChanges=false;showPeriodInfo=false;model.studyConfirmationPresented=false }
+        .onChange(of:model.notificationNavigation) { _ in showAcademic=false;showChanges=false;showPeriodInfo=false;model.studyConfirmationPresented=false }
         .onChange(of:model.requestedLecture) { id in
             if let id { propose([id]);model.requestedLecture=nil }
         }
