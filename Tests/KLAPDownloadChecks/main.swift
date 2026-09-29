@@ -63,3 +63,12 @@ precondition(state.rows["active"]?.stage=="cancelled" && state.rows["active"]?.e
 precondition(state.rows["finished"]?.finished==true && state.rows["failed"]?.error=="network failure")
 precondition(state.transcripts["finished"]?.Stage=="cancelled" && state.transcripts["finished"]?.Error=="")
 print("Cancellation errors are neutral while earlier real failures and completed files remain intact")
+
+state.begin(["a"])
+state.apply([.init(ID:"a",Path:"/tmp/a.mp4",Bytes:10,Skipped:true,Error:"")])
+state.apply(LectureTranscriptProgressData(ID:"a",Stage:"transcribe",Path:"",Error:""))
+state.cancelling=true
+state.finish(error:"killed before final event",receivedResult:false)
+precondition(state.transcripts["a"]?.Stage=="cancelled" && state.transcripts["a"]?.Error=="")
+precondition(state.rows["a"]?.finished==true && state.failure==nil)
+print("Cancellation without a final transcript event preserves the video and clears transient status")

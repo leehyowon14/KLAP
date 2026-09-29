@@ -92,6 +92,9 @@ struct LectureDownloadState {
             rows[id]?.stage=cancelling ? "cancelled" : "error"
             rows[id]?.error=cancelling ? nil : (failure ?? "다운로드 결과를 확인하지 못했습니다.")
         }
+        for (id,value) in transcripts where value.Stage == "transcribe" {
+            transcripts[id]=LectureTranscriptProgressData(ID:id,Stage:cancelling ? "cancelled" : "transcript-error",Path:value.Path,Error:cancelling ? "" : "전사 완료 응답을 받지 못했습니다.")
+        }
         running=false;cancelling=false
     }
 }
