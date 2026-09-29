@@ -141,7 +141,8 @@ func init() {
 }
 
 type lecturePipeliner interface {
-	RunLectureDownloadPipeline(context.Context, app.LectureDownloadPipelineOptions) (app.LectureDownloadPipelineResult, error)
+	lectureDownloader
+	TranscribeDownloadedLectures(context.Context, []app.LectureDownloadItem, app.LectureTranscriptOptions) app.LectureTranscriptResult
 }
 type pipelineDownloader struct {
 	send    func(string, any)
@@ -150,18 +151,24 @@ type pipelineDownloader struct {
 }
 
 func (p pipelineDownloader) DownloadAllLectures(ctx context.Context, opts app.LectureDownloadAllOptions) (app.LectureDownloadAllResult, error) {
-	result, err := p.service.RunLectureDownloadPipeline(ctx, app.LectureDownloadPipelineOptions{Download: opts, Transcribe: true, TranscriptLocale: p.locale, TranscriptConcurrency: 1, OnEvent: func(e app.LecturePipelineEvent) {
-		if e.Download != nil && opts.OnProgress != nil {
-			opts.OnProgress(*e.Download)
+	result, err := p.service.DownloadAllLectures(ctx, opts)
+	if err != nil {
+		return result, err
+	}
+	for _, item := range result.Items {
+		if ctx.Err() != nil {
+			return result, ctx.Err()
 		}
-		if e.Transcript != nil {
-			v := e.Transcript
+		if !app.LectureDownloadItemNeedsTranscript(item) {
+			continue
+		}
+		p.service.TranscribeDownloadedLectures(ctx, []app.LectureDownloadItem{item}, app.LectureTranscriptOptions{Locale: p.locale, OnProgress: func(v app.LectureTranscriptProgress) {
 			message := ""
 			if v.Err != nil {
 				message = v.Err.Error()
 			}
 			p.send("transcript-progress", map[string]any{"ID": v.Lecture.ID, "Stage": v.Stage, "Path": v.OutputPath, "Error": message})
-		}
-	}})
-	return result.Download, err
+		}})
+	}
+	return result, ctx.Err()
 }

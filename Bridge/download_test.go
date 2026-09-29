@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/leehyowon14/KLAP-cli/internal/app"
+	"strings"
 	"testing"
 )
 
@@ -67,25 +68,39 @@ func TestDownloadConcurrency(t *testing.T) {
 	}
 }
 
-type fakePipeline struct{}
+type fakePipeline struct {
+	calls  []string
+	cancel context.CancelFunc
+}
 
-func (fakePipeline) RunLectureDownloadPipeline(ctx context.Context, o app.LectureDownloadPipelineOptions) (app.LectureDownloadPipelineResult, error) {
-	if !o.Transcribe || o.TranscriptLocale != "ko-KR" || o.TranscriptConcurrency != 1 {
-		panic("pipeline options")
+func (f *fakePipeline) DownloadAllLectures(ctx context.Context, o app.LectureDownloadAllOptions) (app.LectureDownloadAllResult, error) {
+	f.calls = append(f.calls, "download-start")
+	if o.OnProgress != nil {
+		o.OnProgress(app.LectureDownloadProgress{Lecture: app.LectureRow{ID: "a"}, Stage: app.LectureStageDone})
 	}
-	o.OnEvent(app.LecturePipelineEvent{Download: &app.LectureDownloadProgress{Lecture: app.LectureRow{ID: "a"}, Stage: app.LectureStageDone}})
-	o.OnEvent(app.LecturePipelineEvent{Transcript: &app.LectureTranscriptProgress{Lecture: app.LectureRow{ID: "a"}, Stage: app.LectureStageTranscriptError, Err: errors.New("speech unavailable")}})
-	return app.LectureDownloadPipelineResult{Download: app.LectureDownloadAllResult{Items: []app.LectureDownloadItem{{Lecture: app.LectureRow{ID: "a"}, Path: "/tmp/a.mp4"}}}}, nil
+	f.calls = append(f.calls, "download-end")
+	return app.LectureDownloadAllResult{Items: []app.LectureDownloadItem{{Lecture: app.LectureRow{ID: "a"}, Path: "/tmp/a.mp4"}, {Lecture: app.LectureRow{ID: "bad"}, Err: errors.New("download failure")}, {Lecture: app.LectureRow{ID: "b"}, Path: "/tmp/b.mp4"}}}, nil
+}
+func (f *fakePipeline) TranscribeDownloadedLectures(ctx context.Context, items []app.LectureDownloadItem, o app.LectureTranscriptOptions) app.LectureTranscriptResult {
+	if len(items) != 1 || o.Locale != "en-US" {
+		panic("sequential transcription or locale lost")
+	}
+	f.calls = append(f.calls, "transcribe-"+items[0].Lecture.ID)
+	if f.cancel != nil {
+		f.cancel()
+	}
+	o.OnProgress(app.LectureTranscriptProgress{Lecture: items[0].Lecture, Stage: app.LectureStageTranscriptError, Err: errors.New("speech unavailable")})
+	return app.LectureTranscriptResult{}
 }
 func TestTranscriptFailurePreservesDownload(t *testing.T) {
 	progress := false
 	transcript := false
-	p := pipelineDownloader{service: fakePipeline{}, locale: "ko-KR", send: func(kind string, data any) {
+	p := pipelineDownloader{service: &fakePipeline{}, locale: "en-US", send: func(kind string, data any) {
 		v := data.(map[string]any)
 		transcript = kind == "transcript-progress" && v["Error"] == "speech unavailable"
 	}}
 	result, err := p.DownloadAllLectures(context.Background(), app.LectureDownloadAllOptions{OnProgress: func(app.LectureDownloadProgress) { progress = true }})
-	if err != nil || !progress || !transcript || len(result.Items) != 1 || result.Items[0].Path != "/tmp/a.mp4" {
+	if err != nil || !progress || !transcript || len(result.Items) != 3 || result.Items[0].Path != "/tmp/a.mp4" {
 		t.Fatal("pipeline lost completed download or transcript failure")
 	}
 }
@@ -106,5 +121,21 @@ func TestProgressThrottleKeepsTransitions(t *testing.T) {
 	})
 	if len(stages) != 4 || stages[1] != "paused" || stages[3] != app.LectureStageDone {
 		t.Fatalf("transition events lost: %v", stages)
+	}
+}
+
+func TestDownloadThenSequentialTranscription(t *testing.T) {
+	f := &fakePipeline{}
+	p := pipelineDownloader{service: f, locale: "en-US", send: func(string, any) {}}
+	_, err := p.DownloadAllLectures(context.Background(), app.LectureDownloadAllOptions{})
+	if err != nil || strings.Join(f.calls, ",") != "download-start,download-end,transcribe-a,transcribe-b" {
+		t.Fatalf("wrong phase order: %v %v", f.calls, err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	f = &fakePipeline{cancel: cancel}
+	p.service = f
+	_, err = p.DownloadAllLectures(ctx, app.LectureDownloadAllOptions{})
+	if !errors.Is(err, context.Canceled) || strings.Join(f.calls, ",") != "download-start,download-end,transcribe-a" {
+		t.Fatalf("cancel must stop next transcription: %v", f.calls)
 	}
 }
