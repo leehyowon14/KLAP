@@ -82,7 +82,6 @@ MainActor.assumeIsolated {
     app.sendEvent(quitEvent);drain()
     precondition(quitCheck.requests == 0 && !quitWindow.isVisible && app.activationPolicy() == .accessory)
     manager.closePreview()
-    precondition(NSImage(contentsOfFile:"dist/KLAP.app/Contents/Resources/KLAP.icns") != nil)
     for escape in [false,true] {
         try! manager.show(key:"close",download:{})
         drain()

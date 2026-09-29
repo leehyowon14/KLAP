@@ -24,11 +24,11 @@ import KLAPCore
         guard !loading else { return }
         loading = true; error = nil
         defer { loading = false }
-        calendarAllowed=await EventPermission.allowed(status:EKEventStore.authorizationStatus(for:.event),request:request) {
+        calendarAllowed=await EventPermission.allowed(status:EKEventStore.authorizationStatus(for:.event),request:request,previouslyAllowed:calendarAllowed) {
             if #available(macOS 14.0, *) {return try await store.requestFullAccessToEvents()}
             return try await store.requestAccess(to:.event)
         }
-        reminderAllowed=await EventPermission.allowed(status:EKEventStore.authorizationStatus(for:.reminder),request:request) {
+        reminderAllowed=await EventPermission.allowed(status:EKEventStore.authorizationStatus(for:.reminder),request:request,previouslyAllowed:reminderAllowed) {
             if #available(macOS 14.0, *) {return try await store.requestFullAccessToReminders()}
             return try await store.requestAccess(to:.reminder)
         }

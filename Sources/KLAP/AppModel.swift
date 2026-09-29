@@ -5,6 +5,32 @@ import Network
 import KLAPCore
 
 @MainActor final class AppModel: ObservableObject {
+    @Published var showDownloads=false
+    @Published var downloadChoices:[LectureItem]=[]
+    @Published var downloadSelection:Set<String>=[]
+    @Published var downloadState=LectureDownloadState()
+    @Published var downloadDirectory:URL? = UserDefaults.standard.string(forKey:"downloadRoot").map {URL(fileURLWithPath:$0)} {
+        didSet {UserDefaults.standard.set(downloadDirectory?.path,forKey:"downloadRoot")}
+    }
+    @Published var downloadMaximum = max(1,min(8,UserDefaults.standard.object(forKey:"downloadMaximum") as? Int ?? 6)) {
+        didSet {UserDefaults.standard.set(downloadMaximum,forKey:"downloadMaximum")}
+    }
+    @Published var downloadAdaptive = UserDefaults.standard.object(forKey:"downloadAdaptive") as? Bool ?? true {
+        didSet {UserDefaults.standard.set(downloadAdaptive,forKey:"downloadAdaptive")}
+    }
+    @Published var downloadLocale=UserDefaults.standard.string(forKey:"downloadLocale") ?? "ko-KR" {
+        didSet {UserDefaults.standard.set(downloadLocale,forKey:"downloadLocale")}
+    }
+    @Published var downloadTranscribe=UserDefaults.standard.bool(forKey:"downloadTranscribe") {
+        didSet {UserDefaults.standard.set(downloadTranscribe,forKey:"downloadTranscribe")}
+    }
+    @Published var downloadTranscribed:Set<String>=[]
+    @Published var downloadPaths:[String:String]=[:]
+    @Published var downloadExisting:Set<String>=[]
+    @Published var downloadScanning=false
+    let downloadBridge=BridgeClient()
+    let downloadInventoryBridge=BridgeClient()
+    var downloadAccount:String?
     let attachments = AttachmentManager()
     let contentNotifications = ContentNotificationService()
     @Published var studyConfirmationPresented=false
@@ -118,8 +144,9 @@ import KLAPCore
         Task { if !onboarding && !loggedOut { await refresh(); if autoSync { await sync() } } }
     }
     func logout() {
-        guard !busy else { return }
+        guard !downloadState.running,!busy else { return }
         contentNotifications.clearDelivered()
+        downloadState=LectureDownloadState();downloadChoices=[];downloadSelection=[];downloadExisting=[];downloadPaths=[:];downloadTranscribed=[];downloadAccount=nil;showDownloads=false
         loggedOut=true
         UserDefaults.standard.set(true,forKey:"loggedOut")
         autoSync=false
@@ -135,13 +162,19 @@ import KLAPCore
     }
     func saveDestinations() async -> Bool {
         guard !busy, setup.ready else { return false }
+        let configuration=DestinationConfiguration(
+            timetable:setup.timetable,academic:setup.academic,reminder:setup.reminder,
+            newTimetable:setup.newTimetable,newAcademic:setup.newAcademic,newReminder:setup.newReminder
+        )
         var saved = false
-        await perform(["Command":"configure", "TimetableName":setup.timetable.isEmpty ? setup.newTimetable : setup.timetable, "AcademicName":setup.academic.isEmpty ? setup.newAcademic : setup.academic, "ReminderName":setup.reminder.isEmpty ? setup.newReminder : setup.reminder, "TimetableExisting":!setup.timetable.isEmpty, "AcademicExisting":!setup.academic.isEmpty, "ReminderExisting":!setup.reminder.isEmpty]) { event in saved = event.kind == "done" }
+        var request=configuration.bridgeRequest
+        request["Command"]="configure"
+        await perform(request) { event in saved = event.kind == "done" }
         guard saved, error == nil else { return false }
-        UserDefaults.standard.set(setup.timetable.isEmpty ? setup.newTimetable : setup.timetable,forKey:"destinationTimetable")
-        UserDefaults.standard.set(setup.academic.isEmpty ? setup.newAcademic : setup.academic,forKey:"destinationAcademic")
-        UserDefaults.standard.set(setup.reminder.isEmpty ? setup.newReminder : setup.reminder,forKey:"destinationReminder")
-        UserDefaults.standard.set(true, forKey: "destinationsConfigured")
+        configuration.persist(in:UserDefaults.standard)
+        setup.timetable=configuration.timetable
+        setup.academic=configuration.academic
+        setup.reminder=configuration.reminder
         return true
     }
     func finishSetup() async {
@@ -205,6 +238,7 @@ import KLAPCore
         return notificationSnapshot
     }
     @discardableResult func login(studentID: String, password: String) async -> Bool {
+        guard !downloadState.running else {error="다운로드 완료 후 계정을 변경해 주세요";return false}
         guard !busy else { return false }
         var succeeded = false
         await perform(["Command":"auth", "StudentID":studentID, "Password":password]) { event in succeeded = event.kind == "done" }

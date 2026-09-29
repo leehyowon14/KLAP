@@ -1,0 +1,51 @@
+--- a/internal/app/download.go
++++ b/internal/app/download.go
+@@ -652,8 +652,8 @@
+ 
+ func transcriptPath(path string) string {
+ 	dir := filepath.Dir(path)
+-	if filepath.Base(dir) == "video" {
+-		dir = filepath.Join(filepath.Dir(dir), "transcription")
++	if strings.EqualFold(filepath.Base(dir), "video") || strings.EqualFold(filepath.Base(dir), "videos") {
++		dir = filepath.Join(filepath.Dir(dir), "Scripts")
+ 	}
+ 	ext := filepath.Ext(path)
+ 	if ext == "" {
+--- /dev/null
++++ b/internal/app/transcript_folder_test.go
+@@ -0,0 +1,15 @@
++package app
++
++import (
++	"path/filepath"
++	"testing"
++)
++
++func TestAppTranscriptFolder(t *testing.T) {
++	for _, folder := range []string{"Videos", "Video", "video"} {
++		got := TranscriptPathForDownload(filepath.Join("/tmp", "KLAP", "자료구조", folder, "강의.mp4"))
++		if got != "/tmp/KLAP/자료구조/Scripts/강의.txt" {
++			t.Fatal(got)
++		}
++	}
++}
+--- a/internal/app/download_test.go
++++ b/internal/app/download_test.go
+@@ -8,7 +8,7 @@
+ )
+ 
+ func TestTranscriptPath(t *testing.T) {
+-	if got := transcriptPath(filepath.Join("downloads", "컴퓨터그래픽스", "video", "lecture.mp4")); got != filepath.Join("downloads", "컴퓨터그래픽스", "transcription", "lecture.txt") {
++	if got := transcriptPath(filepath.Join("downloads", "컴퓨터그래픽스", "video", "lecture.mp4")); got != filepath.Join("downloads", "컴퓨터그래픽스", "Scripts", "lecture.txt") {
+ 		t.Fatalf("transcriptPath() = %q", got)
+ 	}
+ 	if got := transcriptPath(filepath.Join("downloads", "lecture")); got != filepath.Join("downloads", "lecture.txt") {
+@@ -31,7 +31,7 @@
+ 		t.Fatal("LectureDownloadItemNeedsTranscript() expected true without transcript")
+ 	}
+ 
+-	outputPath := filepath.Join(root, "컴퓨터그래픽스", "transcription", "lecture.txt")
++	outputPath := filepath.Join(root, "컴퓨터그래픽스", "Scripts", "lecture.txt")
+ 	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+ 		t.Fatalf("MkdirAll(transcript) error = %v", err)
+ 	}

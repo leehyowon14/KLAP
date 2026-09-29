@@ -21,7 +21,7 @@ done
 mkdir -p "$staging/cmd/klap-mac-bridge"
 cp Bridge/*.go "$staging/cmd/klap-mac-bridge/"
 (cd "$staging" && go test ./cmd/klap-mac-bridge && go build -o "$app/Contents/MacOS/KLAPBridge" ./cmd/klap-mac-bridge)
-for product in ReminderBridge CalendarBridge; do
+for product in ReminderBridge CalendarBridge TranscriptBridge; do
   swift build --build-system native --package-path "$staging/bridges/macos" -c release --product "$product"
   cp "$staging/bridges/macos/.build/release/$product" "$app/Contents/MacOS/$product"
   codesign --force --sign - "$app/Contents/MacOS/$product"

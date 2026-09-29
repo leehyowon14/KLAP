@@ -11,7 +11,11 @@ expect(StudyProgress(percent: .infinity, current: 1, total: 3).fraction == 0, "I
 expect(StudyProgress(percent: 35, current: 2, total: 5).label == "2/5", "Queue position")
 expect(StudyProgress(percent: 0, current: 1, total: 0).label == "", "Empty queue")
 expect(StudyProgress(percent: 0, current: 8, total: 5).label == "5/5", "Queue clamp")
-print("7 progress checks passed")
+expect(StudyProgress(percent: -Double.infinity, current: -4, total: 5) == StudyProgress(percent: 0, current: 0, total: 5), "Negative infinity and negative queue position")
+expect(StudyProgress(percent: Double.infinity, current: 5, total: 5).fraction == 0, "Positive infinity")
+expect(StudyProgress(percent: 100, current: 5, total: 5).label == "5/5", "Completed queue")
+expect(StudyProgress(percent: 50, current: 1, total: 0).label.isEmpty, "Nonempty position with empty queue")
+print("11 progress checks passed")
 expect(TimetableClock.minutes(period: -1, span: 1) == nil, "Negative period")
 expect(TimetableClock.minutes(period: 1, span: 0) == nil, "Invalid span")
 expect(TimetableClock.minutes(period: 11, span: 2) == nil, "Overflow period")
@@ -22,7 +26,32 @@ expect(DestinationPolicy.uniqueNames(["A","A","B"," "]) == ["B"], "Ambiguous des
 expect(DestinationPolicy.uniqueNames([]).isEmpty, "Empty destinations")
 expect(DestinationPolicy.availableName("KLAP",existing:["KLAP","KLAP (2)"]) == "KLAP (3)", "New destination collisions")
 expect(DestinationPolicy.availableName("KLAP",existing:[]) == "KLAP", "First destination")
-print("10 timetable and destination checks passed")
+expect(TimetableClock.minutes(period: 0,span: 12)?.end == 1325, "A full-day span stays inside available periods")
+expect(TimetableClock.minutes(period: 1,span: 12) == nil, "Span past final period")
+expect(TimetableClock.minutes(period: 12,span: 1) == nil, "Period after final period")
+expect(DestinationPolicy.uniqueNames([" A ","A","\n","A"]) == [" A "], "Exact duplicate count and whitespace-only names")
+expect(DestinationPolicy.availableName("KLAP",existing:["KLAP","KLAP (2)","KLAP (4)"]) == "KLAP (3)", "First available suffix after gaps")
+print("15 timetable and destination checks passed")
+
+let selectedDestinations=DestinationConfiguration(
+    timetable:"개인 캘린더 🚀",academic:"",reminder:"마감/할 일",
+    newTimetable:"새 시간표",newAcademic:"KLAP 학사일정",newReminder:"새 할 일"
+)
+expect(selectedDestinations.timetable=="개인 캘린더 🚀" && selectedDestinations.academic=="KLAP 학사일정" && selectedDestinations.reminder=="마감/할 일","Selected and newly named destinations resolve independently")
+expect(selectedDestinations.usesExistingTimetable && !selectedDestinations.usesExistingAcademic && selectedDestinations.usesExistingReminder,"Bridge existing-list flags match each resolved choice")
+let requestData=try JSONSerialization.data(withJSONObject:selectedDestinations.bridgeRequest)
+let requestObject=try JSONSerialization.jsonObject(with:requestData) as! [String:Any]
+expect(requestObject["TimetableName"] as? String=="개인 캘린더 🚀" && requestObject["AcademicExisting"] as? Bool==false,"Destination request is valid JSON and preserves Unicode names")
+let defaultDestinations=DestinationConfiguration(timetable:"",academic:"",reminder:"",newTimetable:"시간표 2",newAcademic:"학사 일정",newReminder:"미리 알림")
+expect(defaultDestinations.bridgeRequest.values.count==6 && !defaultDestinations.usesExistingTimetable && !defaultDestinations.usesExistingAcademic && !defaultDestinations.usesExistingReminder,"New destination request contains all names and marks each as new")
+let destinationSuite="KLAP.destinations."+UUID().uuidString
+let destinationDefaults=UserDefaults(suiteName:destinationSuite)!
+selectedDestinations.persist(in:destinationDefaults)
+expect(destinationDefaults.bool(forKey:"destinationsConfigured") && destinationDefaults.string(forKey:"destinationTimetable")==selectedDestinations.timetable && destinationDefaults.string(forKey:"destinationAcademic")==selectedDestinations.academic && destinationDefaults.string(forKey:"destinationReminder")==selectedDestinations.reminder,"Persisted destination names match the bridge configuration")
+defaultDestinations.persist(in:destinationDefaults)
+expect(destinationDefaults.string(forKey:"destinationTimetable")=="시간표 2" && destinationDefaults.string(forKey:"destinationAcademic")=="학사 일정" && destinationDefaults.string(forKey:"destinationReminder")=="미리 알림","Saving new names replaces the prior saved selection")
+destinationDefaults.removePersistentDomain(forName:destinationSuite)
+print("5 destination request and persistence checks passed")
 
 func makeEntry(_ period:Int, _ span:Int=1, day:Int=1, online:Bool=false) throws -> TimetableEntry {
     let data=try JSONSerialization.data(withJSONObject:["SubjectID":"course", "SubjectName":"과목", "Weekday":day, "Period":period, "Span":span, "Room":"101", "Online":online])
@@ -35,7 +64,16 @@ let excluded = try [makeEntry(1,day:0),makeEntry(2,online:true)]
 expect(TimetableClock.placements(excluded).isEmpty,"Unknown and online classes excluded from grid")
 let empty=try JSONDecoder().decode(Snapshot.self,from:Data("{\"timetable\":null,\"lectures\":null,\"errors\":[]}".utf8))
 expect(empty.lectures == nil && empty.errors.isEmpty,"Nullable CLI collections")
-print("4 layout and decoding checks passed")
+let nested=TimetableClock.placements(try [makeEntry(0,4),makeEntry(1,4),makeEntry(2),makeEntry(4)])
+expect(nested.map(\.lane) == [0,1,2,0], "Nested overlaps reuse only lanes whose intervals ended")
+expect(nested.allSatisfy{$0.laneCount == 3}, "Overlapping layout assigns a common lane count")
+let independent=TimetableClock.placements(try [makeEntry(1,day:1),makeEntry(1,day:2)])
+expect(independent.count == 2 && independent.allSatisfy{$0.lane == 0 && $0.laneCount == 1}, "Different weekdays have independent lanes")
+do {
+    _ = try JSONDecoder().decode(Snapshot.self,from:Data("{broken".utf8))
+    fatalError("Malformed snapshot JSON must fail")
+} catch {}
+print("8 layout and decoding checks passed")
 let screen = CGRect(x:0,y:0,width:1440,height:875)
 let rightPanel=MenuPanelPlacement.frame(anchor:CGRect(x:1410,y:875,width:24,height:25),visibleScreen:screen,size:CGSize(width:540,height:700))
 expect(screen.contains(rightPanel) && rightPanel.maxX == 1432, "Panel remains inside right edge")
@@ -45,7 +83,11 @@ expect(leftScreen.contains(leftPanel) && leftPanel.minX == -1912,"Secondary moni
 let smallScreen=CGRect(x:0,y:0,width:500,height:600)
 let smallPanel=MenuPanelPlacement.frame(anchor:CGRect(x:250,y:600,width:24,height:25),visibleScreen:smallScreen,size:CGSize(width:540,height:700))
 expect(smallScreen.contains(smallPanel),"Small screen bounds")
-print("3 panel positioning checks passed")
+let oversizedPanel=MenuPanelPlacement.frame(anchor:CGRect(x:250,y:600,width:24,height:25),visibleScreen:smallScreen,size:CGSize(width:900,height:900))
+expect(smallScreen.contains(oversizedPanel) && oversizedPanel.width == 484 && oversizedPanel.height == 584,"Panel larger than screen is clamped to visible bounds")
+expect(!MenuPanelPlacement.validAnchor(CGRect(x:CGFloat.infinity,y:875,width:24,height:25),screen:fullScreen),"Infinite anchor rejected")
+expect(!MenuPanelPlacement.validAnchor(CGRect(x:1200,y:875,width:0,height:25),screen:fullScreen),"Zero-width anchor rejected")
+print("6 panel positioning checks passed")
 
 expect(StudyTime(achieved:"5",required:"20").remaining == 15,"Remaining minutes")
 expect(StudyTime(achieved:"30",required:"20").remaining == 0,"Over-completed clamp")
@@ -54,7 +96,12 @@ expect(StudyTime(achieved:"NaN",required:"20").remaining == nil,"Invalid achieve
 expect(StudyTime(achieved:"2",required:"0").remaining == nil,"Unknown duration")
 expect(StudyTime(achieved:"-1",required:"20").remaining == nil,"Negative achieved")
 expect(StudyTime.minutes(0.5) == "1분","Round remaining up")
-print("7 study time checks passed")
+expect(StudyTime(achieved:" 2.5 ",required:" 3.5 ").remaining == 1,"Trim fractional time values")
+expect(StudyTime(achieved:"1",required:"NaN").remaining == nil,"Reject NaN required duration")
+expect(StudyTime(achieved:"1",required:"infinity").remaining == nil,"Reject infinite required duration")
+expect(StudyTime.minutes(-0.2) == "0분","Negative display duration clamps to zero")
+expect(StudyTime.minutes(nil) == "확인 중","Unknown display duration")
+print("12 study time checks passed")
 
 let reminderNote="--- KLAP ---\nID: lecture:abc\n[This reminder is created by KLAP.]"
 expect(ReminderIdentity.matches(notes:reminderNote,lectureID:"abc"),"Exact lecture ID")
@@ -63,7 +110,11 @@ expect(!ReminderIdentity.matches(notes:reminderNote,lectureID:"ab"),"No prefix c
 expect(!ReminderIdentity.matches(notes:"ID: lecture:abc",lectureID:"abc"),"No unowned reminder")
 expect(!ReminderIdentity.matches(notes:nil,lectureID:"abc"),"Missing metadata")
 expect(!ReminderIdentity.matches(notes:reminderNote,lectureID:""),"Empty identity")
-print("6 reminder identity checks passed")
+expect(!ReminderIdentity.matches(notes:"--- KLAP ---\nID: lecture:abc",lectureID:"abc"),"Metadata without closing footer is not owned")
+expect(!ReminderIdentity.matches(notes:"--- KLAP ---\n[This reminder is created by KLAP.]\nID: lecture:abc",lectureID:"abc"),"Metadata after the ownership footer is ignored")
+expect(!ReminderIdentity.matches(notes:"--- KLAP ---\nID: lecture:abc\n[This reminder is created by KLAP.]",lectureID:"ABC"),"Identity matching is exact")
+expect(ReminderIdentity.matches(notes:"teacher note\n--- KLAP ---\nID: lecture:abc\n[This reminder is created by KLAP.]",lectureID:"abc"),"User notes before the ownership header do not change identity")
+print("10 reminder identity checks passed")
 
 let fullScreen=CGRect(x:0,y:0,width:1440,height:900)
 expect(!MenuPanelPlacement.validAnchor(.zero,screen:fullScreen),"Unlaid status item")
@@ -79,7 +130,13 @@ expect(tones == CourseTones.assign(["e","d","c","b","a"]),"Stable order and repe
 expect(CourseTones.assign([]).isEmpty,"Empty course palette")
 expect(CourseTones.assign(["one"])["one"] == 50,"Single course seed")
 expect(Set(CourseTones.assign((0..<20).map(String.init)).values).count == 20,"No modulo palette collisions")
-print("5 course tone checks passed")
+let manyCourseIDs=(0..<500).map{"course-\($0)"}
+let manyTones=CourseTones.assign(manyCourseIDs)
+expect(manyTones.count == 500 && manyTones.values.allSatisfy{$0 >= 15 && $0 <= 80},"Large course sets remain in the usable tonal range")
+expect(manyTones == CourseTones.assign(Array(manyCourseIDs.reversed())),"Large course sets are independent of input order")
+let orderedTones=manyTones.keys.sorted().compactMap{manyTones[$0]}
+expect(zip(orderedTones,orderedTones.dropFirst()).allSatisfy{$0 < $1},"Course tones are strictly increasing and distinct")
+print("8 course tone checks passed")
 
 let deadline=Date(timeIntervalSince1970:100000)
 expect(LectureStatus.resolve(complete:true,deadline:deadline,started:nil,finished:deadline,now:deadline) == .complete,"Completed at deadline")
@@ -88,13 +145,29 @@ expect(LectureStatus.resolve(complete:true,deadline:deadline,started:nil,finishe
 expect(LectureStatus.resolve(complete:false,deadline:deadline,started:nil,finished:nil,now:deadline.addingTimeInterval(1)) == .missed,"Expired incomplete")
 expect(LectureStatus.urgency(deadline:deadline,now:deadline.addingTimeInterval(-18000)) == 2,"Five hours red")
 expect(LectureStatus.urgency(deadline:deadline,now:deadline.addingTimeInterval(-86400)) == 1,"One day orange")
-print("6 lecture status checks passed")
+expect(LectureStatus.resolve(complete:false,deadline:deadline,started:nil,finished:nil,now:deadline) == .pending,"Incomplete at deadline remains pending")
+expect(LectureStatus.resolve(complete:false,deadline:deadline,started:nil,finished:nil,now:deadline.addingTimeInterval(0.001)) == .missed,"Incomplete just after deadline is missed")
+expect(LectureStatus.resolve(complete:true,deadline:deadline,started:nil,finished:deadline,now:deadline.addingTimeInterval(10)) == .complete,"Finished exactly at deadline is on time")
+expect(LectureStatus.resolve(complete:true,deadline:deadline,started:deadline,finished:deadline.addingTimeInterval(1),now:deadline) == .unknown,"Start exactly at deadline does not imply late")
+expect(LectureStatus.urgency(deadline:deadline,now:deadline.addingTimeInterval(-5*3600)) == 2,"Five-hour urgency boundary is inclusive")
+expect(LectureStatus.urgency(deadline:deadline,now:deadline.addingTimeInterval(-5*3600-1)) == 1,"Just outside five-hour boundary")
+expect(LectureStatus.urgency(deadline:deadline,now:deadline.addingTimeInterval(-24*3600)) == 1,"Twenty-four-hour urgency boundary is inclusive")
+expect(LectureStatus.urgency(deadline:deadline,now:deadline.addingTimeInterval(-24*3600-1)) == 0,"Just outside one-day boundary")
+expect(LectureStatus.date("not-a-date") == nil && LectureStatus.date("") == nil,"Malformed and empty server dates")
+print("14 lecture status checks passed")
 
 let serverLecture = try JSONDecoder().decode(Lecture.self,from:Data(#"{"Title":"sample","Progress":"100","FirstStartedAt":"2026-09-01T15:01:00+09:00","FirstCompletedAt":"2026-09-01T16:33:00+09:00","AchievedTime":"41","RequiredTime":"41","EndAt":"2026-09-14T23:59:00+09:00"}"#.utf8))
 expect(LectureStatus.date(serverLecture.FirstStartedAt) != nil && LectureStatus.date(serverLecture.FirstCompletedAt) != nil,"CLI server timestamps decode")
 let legacyLecture=try JSONDecoder().decode(Lecture.self,from:Data(#"{"Title":"sample","Progress":"0"}"#.utf8))
 expect(legacyLecture.FirstStartedAt == nil && legacyLecture.FirstCompletedAt == nil,"Older cache timestamps unknown")
-print("2 CLI timestamp contract checks passed")
+expect(LectureStatus.date("2026-09-01T15:01:00.123+09:00") != nil,"Fractional seconds with timezone decode")
+expect(LectureStatus.date("2024-02-29T15:01:00+09:00") != nil,"Leap-day timestamp accepted in a leap year")
+expect(LectureStatus.date("2000-02-29T15:01:00+09:00") != nil,"Century leap-year timestamp accepted")
+expect(LectureStatus.date("1900-02-29T15:01:00+09:00") == nil,"Century non-leap-day timestamp rejected")
+expect(LectureStatus.date("2026-02-30T15:01:00+09:00") == nil,"Impossible month-end timestamp rejected")
+expect(LectureStatus.date("2026-13-01T15:01:00+09:00") == nil,"Out-of-range month rejected")
+expect(LectureStatus.date("2026/09/01T15:01:00+09:00") == nil,"Non-ISO calendar separator rejected")
+print("9 CLI timestamp contract checks passed")
 
 let periodRows=TimetableClock.placements(try [makeEntry(1),makeEntry(1,2),makeEntry(3)],byPeriod:true)
 expect(periodRows.map(\.start) == [1,1,3],"Period grid starts")
@@ -113,12 +186,13 @@ print("2 notice contract checks passed")
 expect(GradeAllocation(count:0) == nil && GradeAllocation(count:-1) == nil, "Unknown or empty enrollment")
 let allocation107 = GradeAllocation(count:107)!
 expect(allocation107.a == 42 && allocation107.b == 43 && allocation107.lower == 22, "Noncumulative grade example")
-for count in [1, 20, 21, 100, 107, Int.max] {
+for count in Array(1...512) + [Int.max] {
     let value = GradeAllocation(count:count)!
     expect(value.a + value.b + value.lower == count, "Allocation conserves enrollment")
     expect(value.a >= 0 && value.b >= 0 && value.lower >= 0, "Allocation nonnegative")
+    expect(value.a <= count/2 && value.a+value.b <= count, "Allocation stays nonnegative and within enrollment")
 }
-print("14 grade allocation checks passed")
+print("1 example and 513 grade allocation edge checks passed")
 
 let previewTestRoot=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
 defer { try? FileManager.default.removeItem(at:previewTestRoot) }
@@ -166,6 +240,27 @@ expect(!FileManager.default.fileExists(atPath:third.path),"Expired cache cleaned
 do { try store.register(saved,key:"outside"); fatalError("Accepted external file") } catch { }
 print("11 preview file lifecycle checks passed")
 
+let custodyRoot=FileManager.default.temporaryDirectory.appendingPathComponent("klap-preview-custody-"+UUID().uuidString)
+defer {try? FileManager.default.removeItem(at:custodyRoot)}
+let custodyCache=custodyRoot.appendingPathComponent("cache")
+let unrelatedFile=custodyRoot.appendingPathComponent("user-data.txt")
+try FileManager.default.createDirectory(at:custodyCache,withIntermediateDirectories:true)
+try Data("user-owned".utf8).write(to:unrelatedFile)
+let forgedManifest=try JSONSerialization.data(withJSONObject:["forged":["path":unrelatedFile.path,"expires":0]])
+try forgedManifest.write(to:custodyCache.appendingPathComponent("manifest.json"))
+_ = try PreviewFileStore(root:custodyCache,now:baseDate)
+let afterManifestRecovery=try Data(contentsOf:unrelatedFile)
+expect(afterManifestRecovery==Data("user-owned".utf8),"A forged cache manifest cannot delete a file outside the preview root")
+let cacheFolder=custodyCache.appendingPathComponent("attachment-forged")
+try FileManager.default.createDirectory(at:cacheFolder,withIntermediateDirectories:true)
+let symlink=cacheFolder.appendingPathComponent("linked.txt")
+try FileManager.default.createSymbolicLink(at:symlink,withDestinationURL:unrelatedFile)
+let guardedStore=try PreviewFileStore(root:custodyCache,now:baseDate)
+do {try guardedStore.register(symlink,key:"symlink",now:baseDate);fatalError("A symlink to a user file must not be owned") } catch {}
+let afterSymlinkRejection=try Data(contentsOf:unrelatedFile)
+expect(afterSymlinkRejection==Data("user-owned".utf8),"Rejected symlink registration preserves the target")
+print("2 preview cache custody and symlink checks passed")
+
 let linkedText="한글 안내 👋\nhttps://discord.gg/3vv49s3UJ\n자세한 내용: (https://example.org/docs?q=1&lang=ko)."
 let linked=LinkedBody.attributed(linkedText)
 let urls=linked.runs.compactMap { $0.link?.absoluteString }
@@ -200,6 +295,21 @@ memory.closed("expiry",now:baseDate)
 memory.cleanup(now:baseDate.addingTimeInterval(10800))
 expect(memory.cached("expiry")==nil,"Closed preview expires after three hours")
 print("7 memory preview checks passed")
+
+let protectedMemory=MemoryPreviewStore(limit:8)
+try protectedMemory.register(Data([1,2,3,4]),name:"one.bin",key:"one",now:baseDate)
+protectedMemory.opened("one")
+try protectedMemory.register(Data([5,6,7,8]),name:"two.bin",key:"two",now:baseDate)
+protectedMemory.opened("two")
+do {try protectedMemory.register(Data(repeating:9,count:7),name:"replacement.bin",key:"one",now:baseDate.addingTimeInterval(1));fatalError("An oversized replacement must fail while all other cache entries are open")} catch {}
+expect(protectedMemory.cached("one")?.data==Data([1,2,3,4]) && protectedMemory.cached("two")?.data==Data([5,6,7,8]),"Failed replacement restores the previous item and preserves open previews")
+expect(protectedMemory.byteCount==8,"Failed replacement restores the memory byte count")
+let blockedDownloads=memoryDownloads.appendingPathComponent("not-a-directory")
+try Data("block".utf8).write(to:blockedDownloads)
+try memory.register(Data([8,9]),name:"retry.bin",key:"retry",now:baseDate)
+do {_ = try memory.save("retry",to:blockedDownloads);fatalError("Download into a regular file must fail")} catch {}
+expect(memory.cached("retry")?.data==Data([8,9]),"Failed save keeps the cached preview available for retry")
+print("10 memory preview capacity, replacement and retry checks passed")
 
 func contentID(_ kind:String,_ course:String,_ remote:String,_ term:String="2026,2")->String {
     let fields=[term,course,remote]+(kind=="notice" ? ["master"] : [])
@@ -245,4 +355,19 @@ history.ingest(notificationSnapshot(lectureIDs:[l1,l2,l3,contentID("lecture","c1
 expect(history.alerts.count==mutedCount,"Reenable does not replay muted additions")
 expect(ContentAddress("lecture:v1:!:!:!") == nil && ContentAddress("1:2")==nil,"Malformed and legacy IDs rejected")
 expect(history.alert(lectureAlert.id,now:Date().addingTimeInterval(15*86400))==nil,"Old notification actions expire")
-print("15 content notification checks passed")
+let unicodeAddress=ContentAddress(contentID("lecture","과목 🚀","강의/ID","2026,2"))
+expect(unicodeAddress?.term == "2026,2" && unicodeAddress?.course == "과목 🚀" && unicodeAddress?.parts == ["강의/ID"],"Unicode and URL-safe base64 identities round-trip")
+expect(ContentAddress("lecture:v1:a:a:a:extra")==nil,"Extra identity fields rejected")
+expect(ContentAddress("notice:v1:a:a:a")==nil,"Incomplete notice identity rejected")
+expect(ContentAddress("lecture:v1:!:a:a")==nil,"Malformed base64 rejected")
+var expiringHistory=ContentNotificationHistory()
+expiringHistory.ingest(notificationSnapshot(noticeIDs:[n1],lectureIDs:[l1]),notices:true,lectures:true,now:baseDate)
+expiringHistory.ingest(notificationSnapshot(noticeIDs:[n1,n2],lectureIDs:[l1,l2]),notices:true,lectures:true,now:baseDate.addingTimeInterval(1))
+let expiringAlert=expiringHistory.alerts.first{$0.kind == .lecture}!
+expect(expiringHistory.alert(expiringAlert.id,now:expiringAlert.created.addingTimeInterval(14*86400)) != nil,"Alert remains actionable at the exact expiry boundary")
+expiringHistory.ingest(notificationSnapshot(noticeIDs:[n1,n2],lectureIDs:[l1,l2]),notices:true,lectures:true,now:expiringAlert.created.addingTimeInterval(14*86400+1))
+expect(expiringHistory.alert(expiringAlert.id,now:expiringAlert.created.addingTimeInterval(14*86400+1)) == nil,"Expired alerts are pruned after the boundary")
+var emptyAccountHistory=ContentNotificationHistory()
+emptyAccountHistory.ingest(notificationSnapshot(account:"",noticeIDs:[n1],lectureIDs:[l1]),notices:true,lectures:true,now:baseDate)
+expect(emptyAccountHistory.alerts.isEmpty,"Snapshot without an account cannot create notifications")
+print("24 content notification checks passed")

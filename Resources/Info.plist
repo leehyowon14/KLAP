@@ -7,10 +7,11 @@
 <key>CFBundleIconName</key><string>KLAP</string>
 <key>CFBundleIconFile</key><string>KLAP</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.2</string>
-<key>CFBundleVersion</key><string>5</string>
+<key>CFBundleShortVersionString</key><string>0.3.0</string>
+<key>CFBundleVersion</key><string>7</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>LSUIElement</key><true/>
+<key>NSSpeechRecognitionUsageDescription</key><string>다운로드한 강의 영상을 텍스트로 전사합니다.</string>
 <key>NSCalendarsUsageDescription</key><string>수업과 학사일정을 캘린더에 동기화합니다.</string>
 <key>NSCalendarsFullAccessUsageDescription</key><string>KLAP 일정의 생성과 변경을 동기화합니다.</string>
 <key>NSRemindersUsageDescription</key><string>과제와 강의 마감을 미리 알림에 동기화합니다.</string>

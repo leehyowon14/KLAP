@@ -2,9 +2,9 @@
 
 메뉴바에 상주하는 KLAS 학습 관리 macOS 앱입니다. 앱을 열면 관리 화면이 표시되고, 실행 중 다시 열어도 화면에 접근할 수 있습니다. 메뉴바 아이콘 우클릭으로 바로 종료할 수 있습니다. 기본적으로 Dock 아이콘 없이 실행되며, 미리보기를 열면 Dock에 표시됩니다. 미리보기의 ⌘Q는 미리보기만 닫고 메뉴바 작업은 계속됩니다.
 
-## 0.2.2 베타
+## 0.3.0
 
-Apple Silicon용 macOS 13 이상 패키지입니다. ZIP을 풀고 KLAP.app을 응용 프로그램 폴더로 옮겨 실행합니다. Developer ID 서명·공증 전 베타이므로 Gatekeeper가 실행을 차단할 수 있습니다. 출처를 확인한 경우 시스템 설정 → 개인정보 보호 및 보안에서 실행을 허용할 수 있습니다.
+Apple Silicon용 macOS 13 이상 패키지입니다. ZIP을 풀고 KLAP.app을 응용 프로그램 폴더로 옮겨 실행합니다. Developer ID 서명·공증 전 빌드이므로 Gatekeeper가 실행을 차단할 수 있습니다. 출처를 확인한 경우 시스템 설정 → 개인정보 보호 및 보안에서 실행을 허용할 수 있습니다.
 
 변경 내역은 [CHANGELOG.md](CHANGELOG.md)를 참고하세요. 0.1.0 사용자는 최신 버전을 직접 설치해야 합니다. 0.2.0 이상에서는 앱 내 자동 업데이트를 사용할 수 있습니다. 다만 기존 버전에서 App Translocation으로 업데이트가 차단되면 최신 버전을 직접 다운로드하여 교체해야 합니다.
 
@@ -56,6 +56,18 @@ open dist/KLAP-Dev.app
 - 온보딩은 단계별 설정만 표시하며, 완료 후 주간 시간표 표시
 
 ## 검증
+
+전체 로컬 검사는 아래 명령으로 실행합니다. 결과에서 외부 빌드 준비물이나 앱 번들이 없어 실행하지 못한 검사는 `SKIP`으로 따로 표시합니다.
+
+```sh
+bash scripts/test.sh
+```
+
+격리된 로컬 Sparkle 설치·재실행 검사는 별도 테스트 앱을 실행하므로 다음처럼 명시하여 포함합니다.
+
+```sh
+KLAP_RUN_UPDATE_INSTALL=1 bash scripts/test.sh
+```
 
 ```sh
 swift run --build-system native KLAPCoreChecks

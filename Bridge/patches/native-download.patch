@@ -1,0 +1,73 @@
+--- a/internal/app/download.go
++++ b/internal/app/download.go
+@@ -308,13 +308,20 @@
+ 			rows = append(rows, row)
+ 		}
+ 		weekOrders := lectureRowWeekOrders(rows)
+-		for _, row := range rows {
++		for rowIndex, row := range rows {
+ 			if len(selectedIDs) > 0 {
+ 				_, stableSelected := selectedIDs[row.ID]
+ 				_, legacySelected := selectedIDs[row.LegacyID]
+ 				if !stableSelected && !legacySelected {
+ 					continue
+ 				}
++			}
++			if strings.TrimSpace(row.Lecture.ContentID) == "" && row.Lecture.ViewerSupported {
++				contentID, resolveErr := client.ResolveNativeLectureContentID(ctx, lectures[rowIndex])
++				if resolveErr != nil {
++					return LectureDownloadAllResult{}, fmt.Errorf("%s: %w", row.Lecture.Title, resolveErr)
++				}
++				row.Lecture.ContentID = contentID
+ 			}
+ 			tasks = append(tasks, downloadTask{
+ 				Course:    selectedCourse.Course,
+--- /dev/null
++++ b/internal/klas/native_media.go
+@@ -0,0 +1,26 @@
++package klas
++
++import (
++	"context"
++	"fmt"
++	"github.com/leehyowon14/KLAP-cli/internal/kwcommons"
++)
++
++func (c *Client) ResolveNativeLectureContentID(ctx context.Context, l Lecture) (string, error) {
++	form, err := lectureViewerForm(l)
++	if err != nil {
++		return "", err
++	}
++	body, err := c.doForm(ctx, "/spv/lis/lctre/viewer/LctreCntntsViewSpvPage.do", form, true)
++	if err != nil {
++		return "", err
++	}
++	return nativeViewerContentID(body)
++}
++func nativeViewerContentID(body []byte) (string, error) {
++	id := kwcommons.ExtractKWCommonsContentID(string(body))
++	if id == "" {
++		return "", fmt.Errorf("강의 뷰어에서 다운로드 가능한 영상 주소를 찾지 못했습니다")
++	}
++	return id, nil
++}
+--- /dev/null
++++ b/internal/klas/native_media_test.go
+@@ -0,0 +1,17 @@
++package klas
++
++import "testing"
++
++func TestNativeViewerContentID(t *testing.T) {
++	for _, html := range []string{`$('#learnEmbed').html('<EMBED src="https://kwcommons.kw.ac.kr/em/example123">')`, `window.frames["LEARN_IFRAME"].location.href="https://kwcommons.kw.ac.kr/em/example123";`} {
++		id, e := nativeViewerContentID([]byte(html))
++		if e != nil || id != "example123" {
++			t.Fatalf("%s %v", id, e)
++		}
++	}
++	for _, html := range []string{"", `<iframe src="default.htm"></iframe>`, `<html>로그인이 필요합니다</html>`} {
++		if _, e := nativeViewerContentID([]byte(html)); e == nil {
++			t.Fatal("missing media accepted")
++		}
++	}
++}

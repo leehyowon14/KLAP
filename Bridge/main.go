@@ -13,6 +13,11 @@ import (
 )
 
 type request struct {
+	Concurrency       int
+	Adaptive          bool
+	Transcribe        bool
+	Locale            string
+	Year              string
 	ExpectedAccount   string
 	Kind              string
 	SubjectID         string
@@ -57,7 +62,7 @@ func main() {
 		fail(err)
 		return
 	}
-	if r.Command != "attend" {
+	if r.Command != "attend" && r.Command != "lecture-download" && r.Command != "lecture-transcribe" {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 3*time.Minute)
 		defer cancel()

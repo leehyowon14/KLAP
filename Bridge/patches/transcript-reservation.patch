@@ -1,0 +1,92 @@
+--- a/bridges/macos/Sources/SpeechCore/Transcript.swift
++++ b/bridges/macos/Sources/SpeechCore/Transcript.swift
+@@ -100,9 +100,20 @@
+ }
+ 
+ @available(macOS 26.0, *)
+-func releaseReservedSpeechAssets() async {
+-    for reservedLocale in await AssetInventory.reservedLocales {
+-        await AssetInventory.release(reservedLocale: reservedLocale)
++func withSpeechAssetReservation<T>(
++    locale: Locale,
++    reserve: (Locale) async throws -> Bool = { try await AssetInventory.reserve(locale: $0) },
++    release: (Locale) async -> Void = { await AssetInventory.release(reservedLocale: $0) },
++    operation: () async throws -> T
++) async throws -> T {
++    let acquired = try await reserve(locale)
++    do {
++        let result = try await operation()
++        if acquired { await release(locale) }
++        return result
++    } catch {
++        if acquired { await release(locale) }
++        throw error
+     }
+ }
+ 
+@@ -180,20 +191,15 @@
+         return try encodeTranscriptResponse([], progress: shouldEmitProgress)
+     }
+     var results: [TranscribeResult] = []
+-    var preparedLocales: Set<String> = []
+-    if #available(macOS 26.0, *) {
+-        await releaseReservedSpeechAssets()
+-    }
+     for job in request.jobs {
+         do {
+             if #available(macOS 26.0, *) {
+                 let locale = locale(for: job)
+-                let localeKey = locale.identifier(.bcp47)
+-                if !preparedLocales.contains(localeKey) {
++                let result = try await withSpeechAssetReservation(locale: locale) {
+                     try await prepareSpeechAssets(for: locale)
+-                    preparedLocales.insert(localeKey)
++                    return try await transcribe(job: job, emitProgress: shouldEmitProgress)
+                 }
+-                results.append(try await transcribe(job: job, emitProgress: shouldEmitProgress))
++                results.append(result)
+             } else {
+                 throw BridgeError.unsupportedOS
+             }
+--- /dev/null
++++ b/bridges/macos/Tests/SpeechCoreTests/ReservationTests.swift
+@@ -0,0 +1,39 @@
++import Foundation
++import Testing
++@testable import SpeechCore
++
++struct ReservationTests {
++    @Test func releasesOnlyNewReservationsOnSuccessFailureAndCancellation() async throws {
++        guard #available(macOS 26.0, *) else { return }
++        for acquired in [true, false] {
++            for fails in [true, false] {
++                var events: [String] = []
++                do {
++                    let value = try await withSpeechAssetReservation(locale: Locale(identifier: "ko-KR"), reserve: { _ in
++                        events.append("reserve"); return acquired
++                    }, release: { _ in
++                        events.append("release")
++                    }, operation: {
++                        events.append("work")
++                        if fails { throw CancellationError() }
++                        return 42
++                    })
++                    #expect(!fails && value == 42)
++                } catch is CancellationError { #expect(fails) }
++                #expect(events == (acquired ? ["reserve", "work", "release"] : ["reserve", "work"]))
++            }
++        }
++    }
++    @Test func failedReservationDoesNotStartWorkOrRelease() async {
++        guard #available(macOS 26.0, *) else { return }
++        var worked = false
++        var released = false
++        do {
++            let _: Int = try await withSpeechAssetReservation(locale: Locale(identifier: "ko-KR"), reserve: { _ in
++                throw CancellationError()
++            }, release: { _ in released = true }, operation: { worked = true; return 1 })
++            Issue.record("Failed reservation unexpectedly succeeded")
++        } catch {}
++        #expect(!worked && !released)
++    }
++}
