@@ -4,6 +4,8 @@
 <key>CFBundleIdentifier</key><string>dev.leehyowon.klap.mac</string>
 <key>CFBundleExecutable</key><string>KLAP</string>
 <key>CFBundleName</key><string>KLAP</string>
+<key>CFBundleIconName</key><string>KLAP</string>
+<key>CFBundleIconFile</key><string>KLAP</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.1.0</string>
 <key>CFBundleVersion</key><string>1</string>
