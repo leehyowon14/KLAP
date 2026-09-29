@@ -198,10 +198,11 @@ struct DashboardView: View {
     }
     private var courseContent: some View {
         VStack(alignment:.leading,spacing:10) {
-            HStack {
-                Text(model.selectedCourse == nil ? "과목별 대시보드" : "공지 및 강의").font(.system(size:16,weight:.bold)).lineLimit(1)
+            if model.selectedCourse == nil { HStack {
+                Text("과목별 대시보드").font(.system(size:16,weight:.bold)).lineLimit(1)
                 Spacer()
                 if !model.eligibleIDs.isEmpty { Button("미수강 \(model.eligibleIDs.count)개 수강") { propose(model.eligibleIDs) }.disabled(model.busy) }
+            }
             }
             if model.selectedCourse == nil {
                 ForEach(model.courses) { course in
@@ -217,13 +218,19 @@ struct DashboardView: View {
                     }.buttonStyle(.plain)
                 }
             } else {
-                ForEach((model.snapshot.assignments ?? []).filter{$0.CourseName==model.selectedCourse && !$0.Assignment.Submitted}) { assignment in
-                    Label(assignment.Assignment.Title,systemImage:"checklist").font(.caption)
-                }
                 NoticesView(model:model)
+                HStack {
+                    Text("강의").font(.system(size:16,weight:.bold))
+                    Spacer()
+                    if !model.eligibleIDs.isEmpty { Button("미수강 \(model.eligibleIDs.count)개 수강") { propose(model.eligibleIDs) }.disabled(model.busy) }
+                }.padding(.top,12)
                 ForEach(model.lectures) { item in
                     LectureStatusView(item:item,model:model)
                 }
+                ForEach((model.snapshot.assignments ?? []).filter{$0.CourseName==model.selectedCourse && !$0.Assignment.Submitted}) { assignment in
+                    Label(assignment.Assignment.Title,systemImage:"checklist").font(.caption)
+                }
+
             }
         }
     }

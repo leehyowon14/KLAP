@@ -4,7 +4,9 @@ import KLAPCore
 struct NoticesView: View {
     @ObservedObject var model: AppModel
     @ViewState<NoticeRow?> private var selected = nil
-    @ViewState<Bool> private var expanded = false
+    @ViewState<Int> private var page = 0
+    private var pageCount: Int { max(1, (rows.count + 2) / 3) }
+    private var currentPage: Int { min(page, pageCount - 1) }
     private var rows: [NoticeRow] {
         (model.snapshot.notices ?? []).filter { $0.CourseName == model.selectedCourse }
             .sorted { a, b in
@@ -18,16 +20,13 @@ struct NoticesView: View {
                 Label("공지", systemImage: "megaphone").font(.headline)
                 Text("\(rows.count)").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                if rows.count > 3 {
-                    Button(expanded ? "접기" : "전체 보기") { expanded.toggle() }.buttonStyle(.plain)
-                        .font(.caption).foregroundStyle(Color.accentColor)
-                }
+
             }
             if rows.isEmpty {
                 Text(model.snapshot.notices == nil ? "공지를 불러오지 못했습니다. 새로고침해 주세요." : "등록된 공지가 없습니다.")
                     .font(.callout).foregroundStyle(.secondary)
             }
-            ForEach(Array((expanded ? rows : Array(rows.prefix(3))).enumerated()), id: \.element.id) { index, row in
+            ForEach(Array(Array(rows.dropFirst(currentPage * 3).prefix(3)).enumerated()), id: \.element.id) { index, row in
                 if index > 0 { Rectangle().fill(Theme.line).frame(height: 0.5) }
                 Button { selected = row } label: {
                     HStack(spacing: 10) {
@@ -43,7 +42,21 @@ struct NoticesView: View {
                     }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                 }.buttonStyle(.plain).disabled(model.busy)
             }
-        }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+            if pageCount > 1 {
+                Divider()
+                HStack {
+                    Button { page = max(0, currentPage - 1) } label: { Image(systemName:"chevron.left").frame(width:28,height:28) }
+                        .disabled(currentPage == 0).accessibilityLabel("이전 공지 페이지")
+                    Spacer()
+                    Text("\(currentPage + 1) / \(pageCount)").font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                    Spacer()
+                    Button { page = min(pageCount - 1, currentPage + 1) } label: { Image(systemName:"chevron.right").frame(width:28,height:28) }
+                        .disabled(currentPage == pageCount - 1).accessibilityLabel("다음 공지 페이지")
+                }.buttonStyle(.plain)
+            }
+        }.onChange(of: model.selectedCourse) { _ in page = 0 }
+            .onChange(of: rows.map(\.id)) { _ in page = 0 }
+            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
             .sheet(item: $selected) { row in NoticeDetailView(model: model, row: row) }
     }
