@@ -37,7 +37,7 @@ enum Theme {
     static let warningSurface=Color(nsColor:NSColor(name:nil) { appearance in
         appearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua
             ? NSColor(srgbRed:0.28,green:0.19,blue:0.08,alpha:1)
-            : NSColor(srgbRed:1,green:0.89,blue:0.73,alpha:1)
+            : NSColor(srgbRed:0.89,green:0.85,blue:0.78,alpha:1)
     })
     static let tones:[Color] = [40,50,60,70].map { pair($0,$0) }
 }
