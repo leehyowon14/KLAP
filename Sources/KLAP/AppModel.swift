@@ -135,13 +135,19 @@ import KLAPCore
     }
     func saveDestinations() async -> Bool {
         guard !busy, setup.ready else { return false }
+        let configuration=DestinationConfiguration(
+            timetable:setup.timetable,academic:setup.academic,reminder:setup.reminder,
+            newTimetable:setup.newTimetable,newAcademic:setup.newAcademic,newReminder:setup.newReminder
+        )
         var saved = false
-        await perform(["Command":"configure", "TimetableName":setup.timetable.isEmpty ? setup.newTimetable : setup.timetable, "AcademicName":setup.academic.isEmpty ? setup.newAcademic : setup.academic, "ReminderName":setup.reminder.isEmpty ? setup.newReminder : setup.reminder, "TimetableExisting":!setup.timetable.isEmpty, "AcademicExisting":!setup.academic.isEmpty, "ReminderExisting":!setup.reminder.isEmpty]) { event in saved = event.kind == "done" }
+        var request=configuration.bridgeRequest
+        request["Command"]="configure"
+        await perform(request) { event in saved = event.kind == "done" }
         guard saved, error == nil else { return false }
-        UserDefaults.standard.set(setup.timetable.isEmpty ? setup.newTimetable : setup.timetable,forKey:"destinationTimetable")
-        UserDefaults.standard.set(setup.academic.isEmpty ? setup.newAcademic : setup.academic,forKey:"destinationAcademic")
-        UserDefaults.standard.set(setup.reminder.isEmpty ? setup.newReminder : setup.reminder,forKey:"destinationReminder")
-        UserDefaults.standard.set(true, forKey: "destinationsConfigured")
+        configuration.persist(in:UserDefaults.standard)
+        setup.timetable=configuration.timetable
+        setup.academic=configuration.academic
+        setup.reminder=configuration.reminder
         return true
     }
     func finishSetup() async {

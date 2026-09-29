@@ -33,6 +33,26 @@ expect(DestinationPolicy.uniqueNames([" A ","A","\n","A"]) == [" A "], "Exact du
 expect(DestinationPolicy.availableName("KLAP",existing:["KLAP","KLAP (2)","KLAP (4)"]) == "KLAP (3)", "First available suffix after gaps")
 print("15 timetable and destination checks passed")
 
+let selectedDestinations=DestinationConfiguration(
+    timetable:"개인 캘린더 🚀",academic:"",reminder:"마감/할 일",
+    newTimetable:"새 시간표",newAcademic:"KLAP 학사일정",newReminder:"새 할 일"
+)
+expect(selectedDestinations.timetable=="개인 캘린더 🚀" && selectedDestinations.academic=="KLAP 학사일정" && selectedDestinations.reminder=="마감/할 일","Selected and newly named destinations resolve independently")
+expect(selectedDestinations.usesExistingTimetable && !selectedDestinations.usesExistingAcademic && selectedDestinations.usesExistingReminder,"Bridge existing-list flags match each resolved choice")
+let requestData=try JSONSerialization.data(withJSONObject:selectedDestinations.bridgeRequest)
+let requestObject=try JSONSerialization.jsonObject(with:requestData) as! [String:Any]
+expect(requestObject["TimetableName"] as? String=="개인 캘린더 🚀" && requestObject["AcademicExisting"] as? Bool==false,"Destination request is valid JSON and preserves Unicode names")
+let defaultDestinations=DestinationConfiguration(timetable:"",academic:"",reminder:"",newTimetable:"시간표 2",newAcademic:"학사 일정",newReminder:"미리 알림")
+expect(defaultDestinations.bridgeRequest.values.count==6 && !defaultDestinations.usesExistingTimetable && !defaultDestinations.usesExistingAcademic && !defaultDestinations.usesExistingReminder,"New destination request contains all names and marks each as new")
+let destinationSuite="KLAP.destinations."+UUID().uuidString
+let destinationDefaults=UserDefaults(suiteName:destinationSuite)!
+selectedDestinations.persist(in:destinationDefaults)
+expect(destinationDefaults.bool(forKey:"destinationsConfigured") && destinationDefaults.string(forKey:"destinationTimetable")==selectedDestinations.timetable && destinationDefaults.string(forKey:"destinationAcademic")==selectedDestinations.academic && destinationDefaults.string(forKey:"destinationReminder")==selectedDestinations.reminder,"Persisted destination names match the bridge configuration")
+defaultDestinations.persist(in:destinationDefaults)
+expect(destinationDefaults.string(forKey:"destinationTimetable")=="시간표 2" && destinationDefaults.string(forKey:"destinationAcademic")=="학사 일정" && destinationDefaults.string(forKey:"destinationReminder")=="미리 알림","Saving new names replaces the prior saved selection")
+destinationDefaults.removePersistentDomain(forName:destinationSuite)
+print("5 destination request and persistence checks passed")
+
 func makeEntry(_ period:Int, _ span:Int=1, day:Int=1, online:Bool=false) throws -> TimetableEntry {
     let data=try JSONSerialization.data(withJSONObject:["SubjectID":"course", "SubjectName":"과목", "Weekday":day, "Period":period, "Span":span, "Room":"101", "Online":online])
     return try JSONDecoder().decode(TimetableEntry.self,from:data)
