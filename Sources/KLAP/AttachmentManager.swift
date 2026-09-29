@@ -3,10 +3,23 @@ import PDFKit
 import UniformTypeIdentifiers
 import KLAPCore
 
+@MainActor final class PreviewWindow: NSWindow {
+    override func performKeyEquivalent(with event:NSEvent)->Bool {
+        let modifiers=event.modifierFlags.intersection([.command,.control,.option,.shift])
+        if ((event.charactersIgnoringModifiers?.lowercased()=="w" || event.keyCode==13) && modifiers == .command) || (event.keyCode==53 && modifiers.isEmpty) {
+            performClose(nil);return true
+        }
+        return super.performKeyEquivalent(with:event)
+    }
+    override func cancelOperation(_ sender:Any?) { performClose(sender) }
+}
+
 @MainActor final class AttachmentManager: NSObject, NSWindowDelegate, NSToolbarDelegate {
     private let store=MemoryPreviewStore()
     private var timer:Timer?
     private var pageObserver:NSObjectProtocol?
+    private var shortcutMonitor:Any?
+    private var previousActivationPolicy:NSApplication.ActivationPolicy?
     private var previewWindow:NSWindow?
     private var pdfView:PDFView?
     private var previewKey:String?
@@ -46,7 +59,7 @@ import KLAPCore
     func show(key:String,download:@escaping ()->Void)throws {
         guard let item=store.cached(key) else {throw CocoaError(.fileNoSuchFile)}
         closePreview()
-        let window=NSPanel(contentRect:NSRect(x:0,y:0,width:900,height:720),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
+        let window=PreviewWindow(contentRect:NSRect(x:0,y:0,width:900,height:720),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
         window.title=item.name
         window.isReleasedWhenClosed=false
         window.delegate=self
@@ -85,7 +98,20 @@ import KLAPCore
             content.bottomAnchor.constraint(equalTo:host.bottomAnchor)
         ])
         previewWindow=window;previewKey=key;previewDownload=download;store.opened(key)
+        ApplicationMenu.install(application:NSApp)
+        previousActivationPolicy=NSApp.activationPolicy()
+        if let url=Bundle.main.url(forResource:"KLAP",withExtension:"icns"),let icon=NSImage(contentsOf:url) {NSApp.applicationIconImage=icon}
+        NSApp.setActivationPolicy(.regular)
         window.center();window.makeKeyAndOrderFront(nil)
+        shortcutMonitor=NSEvent.addLocalMonitorForEvents(matching:.keyDown) { [weak window] event in
+            guard let window, event.window === window else {return event}
+            let modifiers=event.modifierFlags.intersection([.command,.control,.option,.shift])
+            if modifiers == .command && event.keyCode == 12 {NSApp.terminate(nil);return nil}
+            if (modifiers == .command && event.keyCode == 13) || (modifiers.isEmpty && event.keyCode == 53) {
+                window.performClose(nil);return nil
+            }
+            return event
+        }
         host.layoutSubtreeIfNeeded()
         if let view=pdfView {
             view.autoScales=true
@@ -107,6 +133,10 @@ import KLAPCore
     }
     func closePreview(){previewWindow?.close()}
     func windowWillClose(_ notification:Notification) {
+        guard let closing=notification.object as? NSWindow, closing === previewWindow else {return}
+        if let policy=previousActivationPolicy {NSApp.setActivationPolicy(policy)}
+        previousActivationPolicy=nil
+        if let monitor=shortcutMonitor {NSEvent.removeMonitor(monitor);shortcutMonitor=nil}
         if let observer=pageObserver {NotificationCenter.default.removeObserver(observer)}
         pageObserver=nil;pdfView=nil
         if let key=previewKey {store.closed(key)}

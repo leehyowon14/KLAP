@@ -3,8 +3,14 @@ import CoreGraphics
 import PDFKit
 import KLAPCore
 
+@MainActor final class QuitCheck: NSObject, NSApplicationDelegate {
+    var requests=0
+    func applicationShouldTerminate(_ sender:NSApplication)->NSApplication.TerminateReply {requests+=1;return .terminateCancel}
+}
+
 MainActor.assumeIsolated {
     let app=NSApplication.shared
+    ApplicationMenu.install(application:app)
     app.setActivationPolicy(.accessory)
     let root=FileManager.default.temporaryDirectory.appendingPathComponent("klap-preview-check-"+UUID().uuidString)
     defer { try? FileManager.default.removeItem(at:root) }
@@ -30,6 +36,7 @@ MainActor.assumeIsolated {
             try! manager.show(key:key,download:download)
             drain()
             let window=app.windows.first { $0.isVisible && $0.toolbar?.identifier == "KLAP.preview" }!
+            precondition(app.activationPolicy() == .regular && !(window is NSPanel))
             precondition(window.subtitle == "1 / 3페이지")
             let pdf=window.contentView!.subviews.first as! PDFView
             precondition(pdf.displayMode == .singlePageContinuous && pdf.displayDirection == .vertical)
@@ -68,8 +75,29 @@ MainActor.assumeIsolated {
         try! manager.show(key:"replace",download:{})
         drain();manager.closePreview();drain()
     }
+    let quitCheck=QuitCheck();app.delegate=quitCheck
+    try! manager.show(key:"close",download:{})
+    drain()
+    let quitWindow=app.windows.first { $0.isVisible && $0.toolbar?.identifier == "KLAP.preview" }!
+    let quitEvent=NSEvent.keyEvent(with:.keyDown,location:.zero,modifierFlags:.command,timestamp:0,windowNumber:quitWindow.windowNumber,context:nil,characters:"q",charactersIgnoringModifiers:"q",isARepeat:false,keyCode:12)!
+    app.sendEvent(quitEvent);drain()
+    precondition(quitCheck.requests == 1)
+    manager.closePreview()
+    precondition(NSImage(contentsOfFile:"dist/KLAP.app/Contents/Resources/KLAP.icns") != nil)
+    for escape in [false,true] {
+        try! manager.show(key:"close",download:{})
+        drain()
+        let window=app.windows.first { $0.isVisible && $0.toolbar?.identifier == "KLAP.preview" }!
+        let event=NSEvent.keyEvent(with:.keyDown,location:.zero,modifierFlags:escape ? [] : .command,timestamp:0,windowNumber:window.windowNumber,context:nil,characters:escape ? "\u{1b}" : "w",charactersIgnoringModifiers:escape ? "\u{1b}" : "w",isARepeat:false,keyCode:escape ? 53 : 13)!
+        app.sendEvent(event)
+        drain()
+        precondition(!window.isVisible && app.activationPolicy() == .accessory)
+    }
     drain()
     let files=try! FileManager.default.contentsOfDirectory(atPath:downloads.path)
     precondition(files.count==3)
+    let quit=app.mainMenu!.items.first!.submenu!.items.first!
+    precondition(quit.keyEquivalent=="q" && quit.action==#selector(NSApplication.terminate(_:)))
+    precondition(quit.target === app)
     print("Preview download x3, manual close, reopen and replacement checks passed")
 }
