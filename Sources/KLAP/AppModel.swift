@@ -21,6 +21,10 @@ import KLAPCore
     @Published var downloadTranscribe=UserDefaults.standard.bool(forKey:"downloadTranscribe") {
         didSet {UserDefaults.standard.set(downloadTranscribe,forKey:"downloadTranscribe")}
     }
+    @Published var downloadExisting:Set<String>=[]
+    @Published var downloadScanning=false
+    let downloadBridge=BridgeClient()
+    let downloadInventoryBridge=BridgeClient()
     var downloadAccount:String?
     let attachments = AttachmentManager()
     let contentNotifications = ContentNotificationService()
@@ -135,9 +139,9 @@ import KLAPCore
         Task { if !onboarding && !loggedOut { await refresh(); if autoSync { await sync() } } }
     }
     func logout() {
-        guard !busy else { return }
+        guard !downloadState.running,!busy else { return }
         contentNotifications.clearDelivered()
-        downloadState=LectureDownloadState();downloadChoices=[];downloadSelection=[];downloadAccount=nil;showDownloads=false
+        downloadState=LectureDownloadState();downloadChoices=[];downloadSelection=[];downloadExisting=[];downloadAccount=nil;showDownloads=false
         loggedOut=true
         UserDefaults.standard.set(true,forKey:"loggedOut")
         autoSync=false
@@ -229,6 +233,7 @@ import KLAPCore
         return notificationSnapshot
     }
     @discardableResult func login(studentID: String, password: String) async -> Bool {
+        guard !downloadState.running else {error="다운로드 완료 후 계정을 변경해 주세요";return false}
         guard !busy else { return false }
         var succeeded = false
         await perform(["Command":"auth", "StudentID":studentID, "Password":password]) { event in succeeded = event.kind == "done" }

@@ -65,6 +65,11 @@ Task { @MainActor in
         } catch let error as BridgeFailure {
             expect(error.message.contains("다른 작업"),"Concurrent command reports a busy state")
         }
+        mode("lines")
+        let refreshClient=BridgeClient(executableURL:executable)
+        var refreshed=false
+        try await refreshClient.run(["Command":"refresh"]) {if $0.kind=="done" {refreshed=true}}
+        expect(refreshed,"Refresh on a separate bridge succeeds during a download")
         client.cancel()
         if case .success = await active.result {fatalError("Cancelled bridge process must not report success")}
         mode("lines")
