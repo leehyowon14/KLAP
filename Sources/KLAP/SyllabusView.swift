@@ -5,16 +5,15 @@ private struct GradeAllocationView: View {
     let count: Int?
     var body: some View {
         VStack(alignment:.leading,spacing:12) {
-            Text("상대평가 배정 예시").font(.headline)
+            Text("상위 등급 최대 배정 기준").font(.headline)
             if let count, let allocation = GradeAllocation(count:count) {
                 HStack { Text("A"); Spacer(); Text("\(allocation.a)명") }
                 HStack { Text("B"); Spacer(); Text("\(allocation.b)명") }
                 HStack { Text("C 이하"); Spacer(); Text("\(allocation.lower)명") }
                 Divider()
-                Text("A 40%, A+B 80% 상한을 채운 예시입니다. B는 A를 제외한 인원이며, A 배정이 줄면 B는 늘어날 수 있습니다.")
-                Text("비율 상한을 넘지 않도록 소수점은 버렸습니다. 학교의 실제 인원 배정과 다를 수 있습니다.")
-                Text(count <= 20 ? "이 강좌는 20명 이하로 비상대평가가 가능하므로 담당 교수의 기준을 확인하세요." : "실험·실습 등 비상대평가 과목 및 예외 적용 여부는 담당 교수의 기준을 확인하세요.")
+                Text("A를 최대한 배정한 뒤 남은 B 인원을 계산했으며, 비율 상한을 넘지 않도록 소수점은 버렸습니다. 실제 배정은 담당 교수의 평가 기준과 비상대평가·예외 적용 여부에 따라 달라질 수 있습니다.")
             } else { Text("수강 인원을 확인할 수 없어 계산하지 않았습니다.") }
+            Text("자세한 기준은 아래 시행세칙을 참고하세요.")
             Link("광운대학교 학칙 시행세칙 제16조의2 ↗", destination:URL(string:"https://rule.kw.ac.kr/lmxsrv/law/lawFullView.do?SEQ=22&SEQ_HISTORY=614")!)
         }.font(.callout).padding(18).frame(width:310)
     }
