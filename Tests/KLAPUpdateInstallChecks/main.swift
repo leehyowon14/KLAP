@@ -22,7 +22,9 @@ import Sparkle
         if Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String == "2" {record("PASS relaunched");NSApp.terminate(nil);return}
         do {
             let path=Bundle.main.object(forInfoDictionaryKey:"TestOriginal") as! String
-            let host=try UpdateTarget.resolve(running:Bundle.main,original:{_ in URL(fileURLWithPath:path)},installed:{_ in true})
+            let real=Bundle.main.object(forInfoDictionaryKey:"TestGatekeeper") as? Bool == true
+            if real && !Bundle.main.bundleURL.pathComponents.contains("AppTranslocation") {throw NSError(domain:"Test",code:1,userInfo:[NSLocalizedDescriptionKey:"Actual App Translocation was not reproduced"])}
+            let host=try real ? UpdateTarget.resolve(running:Bundle.main) : UpdateTarget.resolve(running:Bundle.main,original:{_ in URL(fileURLWithPath:path)},installed:{_ in true})
             record("target \(host.bundlePath)")
             guard host.bundleURL.resolvingSymlinksInPath().path == URL(fileURLWithPath:path).resolvingSymlinksInPath().path else {throw UpdateTarget.failure}
             updater=SPUUpdater(hostBundle:host,applicationBundle:host,userDriver:Driver(hostBundle:host,delegate:nil),delegate:nil)
