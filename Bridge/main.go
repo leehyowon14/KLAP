@@ -62,6 +62,19 @@ func main() {
 		defer cancel()
 	}
 	switch r.Command {
+	case "board-read":
+		var data []byte
+		data, err = s.BoardRead(ctx, app.BoardOptions{Kind: r.Kind, TermValue: r.TermValue, SubjectID: r.SubjectID, BoardNo: r.BoardNo, MasterNo: r.MasterNo}, r.FileSN)
+		if err == nil {
+			for offset := 0; offset < len(data); offset += 65536 {
+				end := offset + 65536
+				if end > len(data) {
+					end = len(data)
+				}
+				emit("chunk", data[offset:end])
+			}
+			emit("result", map[string]int{"Bytes": len(data)})
+		}
 	case "board-list", "board-detail", "board-download":
 		opts := app.BoardOptions{Kind: r.Kind, TermValue: r.TermValue, SubjectID: r.SubjectID, BoardNo: r.BoardNo, MasterNo: r.MasterNo}
 		var value any
