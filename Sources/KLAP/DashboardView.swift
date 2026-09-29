@@ -33,6 +33,7 @@ struct DashboardView: View {
                         courseContent
                     }
                     else {
+                    if model.showLogin { login }
                     if !model.conflicts.isEmpty { changesLink }
                     HStack {
                         Text("주간 시간표").font(.system(size:16,weight:.bold))
@@ -43,7 +44,6 @@ struct DashboardView: View {
                     }
                     WeeklyTimetable(entries:model.snapshot.timetable?.Entries ?? []) { model.selectedCourse = $0 }
                     Rectangle().fill(Theme.line).frame(height:1).padding(.vertical,8)
-                    if model.showLogin { login }
                     if let error = model.error, !error.hasPrefix("KLAS에서 갱신된 항목 ") {
                         Label(error,systemImage:"exclamationmark.triangle").font(.caption).foregroundStyle(.orange).textSelection(.enabled)
                     }
@@ -60,7 +60,7 @@ struct DashboardView: View {
                     } else { courseContent }
                     }
                 }.frame(maxWidth:.infinity,alignment:.leading).padding(.bottom,4)
-            }.id(model.onboarding ? "onboarding" : model.showSettings ? "settings" : showChanges ? "changes" : model.selectedCourse ?? "home").scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
+            }.id(model.onboarding ? "onboarding" : model.showSettings ? "settings" : showChanges ? "changes" : model.showLogin ? "login" : model.selectedCourse ?? "home").scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
             Rectangle().fill(Theme.line).frame(height:1)
             HStack(spacing:16) {
                 VStack(alignment:.leading,spacing:2) {
@@ -108,7 +108,6 @@ struct DashboardView: View {
                 Text("등록 위치").font(.headline)
                 Text("시간표·학사일정은 캘린더에, 과제·강의 마감은 미리 알림에 등록합니다.").font(.caption).foregroundStyle(.secondary)
                 DestinationSettings(model:model,setup:model.setup)
-                if let date=model.lastSync { Text("마지막 동기화 \(date.formatted())").font(.caption).foregroundStyle(.secondary) }
             }.frame(maxWidth:.infinity,alignment:.leading).padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
             VStack(alignment:.leading,spacing:12) {
                 Text("계정").font(.headline)

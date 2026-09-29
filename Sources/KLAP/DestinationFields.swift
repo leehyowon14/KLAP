@@ -17,7 +17,8 @@ struct DestinationFields: View {
             Text(title).font(.callout.weight(.medium)).frame(width:64,alignment:.leading)
             Spacer(minLength:0)
             DestinationPicker(selection:selection,options:[""]+options,titles:["새로 만들기 · " + newName]+options,label:title)
-                .frame(width:240,height:32)
+                .frame(width:240,height:36)
+                .padding(.horizontal,8).background(Color.primary.opacity(0.06),in:RoundedRectangle(cornerRadius:10))
 
         }.frame(minHeight:54)
     }
@@ -34,6 +35,9 @@ struct DestinationSettings: View {
                 DestinationFields(setup:setup).disabled(model.busy)
                 HStack {
                     if saved { Label("등록 위치를 저장했습니다",systemImage:"checkmark.circle").font(.caption).foregroundStyle(.secondary) }
+                    if !saved, let date=model.lastSync {
+                        Text("마지막 동기화 \(date.formatted(date:.abbreviated,time:.shortened))").font(.caption).foregroundStyle(.secondary)
+                    }
                     Spacer()
                     Button("저장") { Task { saved=await model.saveDestinations(); saveError = saved ? nil : model.error } }
                         .buttonStyle(FormButtonStyle(prominent:true,compact:true)).disabled(model.busy)
@@ -62,6 +66,7 @@ private struct DestinationPicker: NSViewRepresentable {
     func makeNSView(context:Context) -> NSPopUpButton {
         let button=NSPopUpButton(frame:.zero,pullsDown:false)
         button.controlSize = .large
+        button.isBordered=false
         button.font = .systemFont(ofSize:13)
         button.setContentHuggingPriority(.defaultLow,for:.horizontal)
         button.setContentCompressionResistancePriority(.defaultLow,for:.horizontal)
