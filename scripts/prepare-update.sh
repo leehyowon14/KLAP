@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 tag="${1:?Usage: bash scripts/prepare-update.sh v0.2.0-beta [app-path]}"
 app="${2:-dist/KLAP.app}"
-[[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || { echo "잘못된 릴리스 태그" >&2; exit 1; }
+[[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9.-]+)?$ ]] || { echo "잘못된 릴리스 태그" >&2; exit 1; }
 tools=".build/artifacts/sparkle/Sparkle/bin"
 python3 - "$app" "$tag" <<'PY'
 import pathlib,plistlib,sys,xml.etree.ElementTree as ET
