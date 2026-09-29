@@ -7,6 +7,18 @@ private final class KeyablePanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+private struct MenuBackdrop: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .popover
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+}
+
 /// A rounded menu-bar panel without NSPopover's pointer. The model outlives it.
 @MainActor final class MenuPanel {
     private let window: KeyablePanel
@@ -37,7 +49,7 @@ private final class KeyablePanel: NSPanel {
         window.title = "KLAP"
         window.contentView = NSHostingView(rootView:
             DashboardView(model:model)
-                .background(Theme.canvas)
+                .background(MenuBackdrop())
                 .clipShape(RoundedRectangle(cornerRadius:18,style:.continuous))
                 .overlay(RoundedRectangle(cornerRadius:18,style:.continuous).strokeBorder(.primary.opacity(0.12),lineWidth:0.5))
         )
