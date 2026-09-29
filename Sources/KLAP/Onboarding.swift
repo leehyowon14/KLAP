@@ -83,13 +83,13 @@ struct OnboardingView: View {
                 VStack(alignment:.leading,spacing:12) {
                     VStack(alignment:.leading,spacing:5) {
                         Text("학번").font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                        TextField("학번 입력",text:$studentID).accessibilityLabel("학번")
+                        TextField("학번 입력",text:$studentID).accessibilityLabel("학번").modifier(AccountFieldStyle())
                     }
                     VStack(alignment:.leading,spacing:5) {
                         Text("비밀번호").font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                        SecureField("KLAS 비밀번호",text:$password).accessibilityLabel("비밀번호")
+                        SecureField("KLAS 비밀번호",text:$password).accessibilityLabel("비밀번호").modifier(AccountFieldStyle())
                     }
-                }.textFieldStyle(.roundedBorder).controlSize(.large)
+                }
                 HStack {
                     Button("저장된 계정 사용") {Task {await model.refresh();if model.snapshot.timetable != nil {setup.step=1}}}
                         .buttonStyle(.borderless).disabled(model.busy)

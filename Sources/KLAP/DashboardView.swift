@@ -65,11 +65,11 @@ struct DashboardView: View {
     private var login: some View {
         VStack(alignment:.leading,spacing:8) {
             Text("KLAS 로그인").font(.headline)
-            TextField("학번",text:$studentID)
-            SecureField("비밀번호",text:$password)
+            TextField("학번",text:$studentID).modifier(AccountFieldStyle())
+            SecureField("비밀번호",text:$password).modifier(AccountFieldStyle())
             HStack { Button("로그인") { let secret=password;password="";Task {await model.login(studentID:studentID,password:secret)} }.disabled(model.busy || studentID.trimmingCharacters(in:.whitespaces).isEmpty || password.isEmpty);Button("닫기") {password="";model.showLogin=false} }
             Text("비밀번호는 CLI의 OS 보안 저장소에 저장됩니다.").font(.caption2).foregroundStyle(.secondary)
-        }.textFieldStyle(.roundedBorder).padding(12).background(.quaternary.opacity(0.3),in:RoundedRectangle(cornerRadius:10))
+        }.padding(12).background(.quaternary.opacity(0.3),in:RoundedRectangle(cornerRadius:10))
     }
     private var settings: some View {
         VStack(alignment:.leading,spacing:8) {
