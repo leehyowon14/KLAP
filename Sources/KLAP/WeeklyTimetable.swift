@@ -22,7 +22,7 @@ struct WeeklyTimetable: View {
                     Path { path in
                         for day in 0...days { let x = 32 + CGFloat(day)*width; path.move(to: CGPoint(x:x,y:0));path.addLine(to:CGPoint(x:x,y:geometry.size.height)) }
                         for period in start...end { let y=CGFloat(period-start)*scale;path.move(to:CGPoint(x:32,y:y));path.addLine(to:CGPoint(x:geometry.size.width,y:y)) }
-                    }.stroke(Theme.line, lineWidth: 0.6)
+                    }.stroke(Theme.line, lineWidth: 0.75)
                     ForEach(start..<end, id: \.self) { period in
                         Text("\(period)").font(.system(size:9,design:.monospaced)).foregroundStyle(.secondary).offset(x:3,y:CGFloat(period-start)*scale+8)
                     }
@@ -31,12 +31,12 @@ struct WeeklyTimetable: View {
                         let range = (start:placement.start,end:placement.end)
                         let lane = placement.lane
                         let laneWidth = width / CGFloat(placement.laneCount)
-                        let inset:CGFloat = 2
+                        let inset:CGFloat = 4
                             Button { select(entry.SubjectName) } label: {
                                 VStack(alignment:.leading,spacing:2) {
                                     Text(entry.SubjectName).font(.system(size:10,weight:.bold)).lineLimit(2)
                                     Text(entry.Room).font(.system(size:9)).lineLimit(1).opacity(0.8)
-                                }.padding(5).frame(width:max(1,laneWidth-inset*2),height:max(18,CGFloat(range.end-range.start)*scale-inset*2),alignment:.topLeading)
+                                }.padding(4).frame(width:max(1,laneWidth-inset*2),height:max(18,CGFloat(range.end-range.start)*scale-inset*2),alignment:.topLeading)
                                     .foregroundStyle((courseTones[entry.SubjectID] ?? 50) < 30 ? Color(nsColor:Theme.tone(95)) : .white)
                                     .background(color(entry.SubjectID),in:RoundedRectangle(cornerRadius:8,style:.continuous))
                                     .clipped()
