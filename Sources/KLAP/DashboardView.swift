@@ -131,6 +131,7 @@ struct DashboardView: View {
                 Button("로그아웃",role:.destructive) { model.logout() }.buttonStyle(.plain).foregroundStyle(Theme.accent).disabled(model.busy)
                 Text("자동 갱신을 중단합니다. CLI 저장 계정과 기존 일정은 유지됩니다.").font(.caption).foregroundStyle(.secondary)
             }.frame(maxWidth:.infinity,alignment:.leading).padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
+            UpdateSettings(updater:model.updater)
         }.font(.callout)
     }
     private func settingsRow(_ title:String,icon:String,action:@escaping () -> Void) -> some View {

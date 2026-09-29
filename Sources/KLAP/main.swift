@@ -27,7 +27,9 @@ import KLAPCore
         model.$progress.sink { [weak self] progress in self?.updateIcon(progress) }.store(in:&subscriptions)
         UNUserNotificationCenter.current().delegate = self
         model.reveal = { [weak self] in self?.show() }
-        if !ProcessInfo.processInfo.arguments.contains("--smoke-test") { model.start() }
+        if !ProcessInfo.processInfo.arguments.contains("--smoke-test") { model.start()
+            model.updater.observeActivity(Publishers.CombineLatest3(model.$busy,model.$studying,model.$onboarding).map {$0 || $1 || $2}.eraseToAnyPublisher())
+            model.updater.start() }
         if !ProcessInfo.processInfo.arguments.contains("--smoke-test") { DispatchQueue.main.async { [weak self] in self?.show() } }
     }
     func applicationWillTerminate(_ notification: Notification) { if didInitializeModel { model.cancel() } }
@@ -37,6 +39,9 @@ import KLAPCore
             let menu=NSMenu()
             let open=menu.addItem(withTitle:"KLAP 열기",action:#selector(openPanel),keyEquivalent:"")
             open.target=self
+            let update=menu.addItem(withTitle:"업데이트 확인…",action:#selector(AppUpdater.check),keyEquivalent:"")
+            update.target=model.updater
+            update.isEnabled=model.updater.canCheck
             menu.addItem(.separator())
             let quit=menu.addItem(withTitle:"KLAP 종료",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q")
             quit.target=NSApp
