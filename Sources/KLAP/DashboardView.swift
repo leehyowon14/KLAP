@@ -26,11 +26,16 @@ struct DashboardView: View {
                     if model.onboarding { OnboardingView(model:model,setup:model.setup) }
                     else if model.showSettings { settings }
                     else if showChanges { changesPage }
+                    else if model.selectedCourse != nil {
+                        pageHeading(model.selectedCourse ?? "과목") { model.selectedCourse=nil }
+                        if model.studying { studyProgress }
+                        courseContent
+                    }
                     else {
                     if !model.conflicts.isEmpty { changesLink }
                     HStack { Text("주간 시간표").font(.system(size:16,weight:.bold));Spacer();if model.selectedCourse != nil { Button("전체 과목") { model.selectedCourse = nil }.buttonStyle(.plain).font(.callout).foregroundStyle(.tint) } }
                     WeeklyTimetable(entries:model.snapshot.timetable?.Entries ?? []) { model.selectedCourse = $0 }
-                    Divider().padding(.vertical,8)
+                    Rectangle().fill(Theme.line).frame(height:1).padding(.vertical,8)
                     if model.showLogin { login }
                     if let error = model.error, !error.hasPrefix("KLAS에서 갱신된 항목 ") {
                         Label(error,systemImage:"exclamationmark.triangle").font(.caption).foregroundStyle(.orange).textSelection(.enabled)
@@ -49,7 +54,7 @@ struct DashboardView: View {
                     }
                 }.frame(maxWidth:.infinity,alignment:.leading).padding(.bottom,4)
             }.scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
-            Divider()
+            Rectangle().fill(Theme.line).frame(height:1)
             HStack(spacing:16) {
                 VStack(alignment:.leading,spacing:2) {
                     Text(model.onboarding ? "설정은 나중에도 변경할 수 있습니다" : model.message).lineLimit(1)
@@ -59,7 +64,7 @@ struct DashboardView: View {
                 if !model.onboarding { Button("동기화") { Task { await model.sync() } }.buttonStyle(.borderless).disabled(model.busy) }
                 Button { if model.studying { model.cancel() }; NSApp.terminate(nil) } label: { Label("종료", systemImage: "power") }.buttonStyle(.borderless).fixedSize().help("KLAP 종료").accessibilityLabel("KLAP 종료")
             }
-        }.buttonStyle(FormButtonStyle(compact:true)).padding(20).frame(maxWidth:.infinity,maxHeight:.infinity)
+        }.tint(Theme.accent).foregroundStyle(Theme.ink).buttonStyle(FormButtonStyle(compact:true)).padding(20).frame(maxWidth:.infinity,maxHeight:.infinity)
         .alert("선택한 강의를 자동 수강할까요?",isPresented:$confirmStudy) {
             Button("취소",role:.cancel) {}
             Button("\(proposedIDs.count)개 수강 시작") { Task { await model.attend(proposedIDs) } }
@@ -115,8 +120,8 @@ struct DashboardView: View {
                 }
                 Spacer()
                 Image(systemName:"chevron.right").font(.caption)
-            }.foregroundStyle(.orange).padding(12).frame(maxWidth:.infinity,alignment:.leading)
-                .background(Color.orange.opacity(0.1),in:RoundedRectangle(cornerRadius:8))
+            }.foregroundStyle(Theme.warning).padding(12).frame(maxWidth:.infinity,alignment:.leading)
+                .background(Theme.warningSurface,in:RoundedRectangle(cornerRadius:8))
                 .contentShape(RoundedRectangle(cornerRadius:8))
         }.buttonStyle(.plain)
     }
@@ -159,7 +164,7 @@ struct DashboardView: View {
                                 let lectures=(model.snapshot.lectures ?? []).filter{$0.row.CourseName==course.name && $0.reason.isEmpty}.count
                                 Text("미제출 과제 \(assignments) · 수강 가능 \(lectures)").font(.caption).foregroundStyle(.secondary)
                             };Spacer();Image(systemName:"chevron.right").font(.caption).foregroundStyle(.secondary)
-                        }.padding(14).background(Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:12))
+                        }.padding(14).background(Theme.surface,in:RoundedRectangle(cornerRadius:12))
                     }.buttonStyle(.plain)
                 }
             } else {
@@ -180,7 +185,7 @@ struct DashboardView: View {
                             Button("열기") {Task {await model.openLecture(item.id)}}.disabled(model.busy)
                             if item.reason.isEmpty { Button("수강") {propose([item.id])}.disabled(model.busy) }
                         }
-                    }.padding(12).background(Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:12))
+                    }.padding(12).background(Theme.surface,in:RoundedRectangle(cornerRadius:12))
                 }
             }
         }
