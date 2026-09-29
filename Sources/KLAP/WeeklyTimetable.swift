@@ -31,16 +31,17 @@ struct WeeklyTimetable: View {
                         let range = (start:placement.start,end:placement.end)
                         let lane = placement.lane
                         let laneWidth = width / CGFloat(placement.laneCount)
+                        let inset:CGFloat = 2
                             Button { select(entry.SubjectName) } label: {
                                 VStack(alignment:.leading,spacing:2) {
                                     Text(entry.SubjectName).font(.system(size:10,weight:.bold)).lineLimit(2)
                                     Text(entry.Room).font(.system(size:9)).lineLimit(1).opacity(0.8)
-                                }.padding(5).frame(width:max(1,laneWidth-5),height:max(18,CGFloat(range.end-range.start)*scale-4),alignment:.topLeading)
+                                }.padding(5).frame(width:max(1,laneWidth-inset*2),height:max(18,CGFloat(range.end-range.start)*scale-inset*2),alignment:.topLeading)
                                     .foregroundStyle((courseTones[entry.SubjectID] ?? 50) < 30 ? Color(nsColor:Theme.tone(95)) : .white)
                                     .background(color(entry.SubjectID),in:RoundedRectangle(cornerRadius:8,style:.continuous))
                                     .clipped()
                             }.buttonStyle(.plain).help("\(entry.SubjectName) · \(entry.Room) · \(entry.Period)교시")
-                                .offset(x:33+CGFloat(entry.Weekday-1)*width+CGFloat(lane)*laneWidth,y:CGFloat(range.start-start)*scale+1)
+                                .offset(x:32+CGFloat(entry.Weekday-1)*width+CGFloat(lane)*laneWidth+inset,y:CGFloat(range.start-start)*scale+inset)
                     }
                     if entries.isEmpty { Text("시간표가 없습니다").font(.callout).foregroundStyle(.secondary).frame(width:geometry.size.width,height:geometry.size.height) }
                 }
