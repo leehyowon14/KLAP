@@ -113,7 +113,7 @@ import KLAPCore
         previewWindow=nil;previewKey=nil;previewDownload=nil;scheduleCleanup()
     }
     func toolbarAllowedItemIdentifiers(_ toolbar:NSToolbar)->[NSToolbarItem.Identifier] {
-        [.flexibleSpace,.init("zoomOut"),.init("fit"),.init("zoomIn"),downloadItemID]
+        [.flexibleSpace,.init("zoomOut"),.init("actualSize"),.init("zoomIn"),downloadItemID]
     }
     func toolbarDefaultItemIdentifiers(_ toolbar:NSToolbar)->[NSToolbarItem.Identifier] {toolbarAllowedItemIdentifiers(toolbar)}
     func toolbar(_ toolbar:NSToolbar,itemForItemIdentifier id:NSToolbarItem.Identifier,willBeInsertedIntoToolbar flag:Bool)->NSToolbarItem? {
@@ -122,7 +122,7 @@ import KLAPCore
         switch id.rawValue {
         case "zoomOut":config=("축소","minus.magnifyingglass",#selector(zoomOut))
         case "zoomIn":config=("확대","plus.magnifyingglass",#selector(zoomIn))
-        case "fit":config=("페이지 맞춤","arrow.up.left.and.arrow.down.right",#selector(fit))
+        case "actualSize":config=("실제 크기 (100%)","1.magnifyingglass",#selector(actualSize))
         case downloadItemID.rawValue:config=("다운로드","arrow.down.to.line",#selector(downloadPreview))
         default:return nil
         }
@@ -132,7 +132,7 @@ import KLAPCore
     }
     @objc private func zoomOut(){pdfView?.autoScales=false;pdfView?.zoomOut(nil)}
     @objc private func zoomIn(){pdfView?.autoScales=false;pdfView?.zoomIn(nil)}
-    @objc private func fit(){pdfView?.autoScales=true}
+    @objc private func actualSize(){pdfView?.autoScales=false;pdfView?.scaleFactor=1}
     @objc private func downloadPreview(){let action=previewDownload;action?()}
     private func scheduleCleanup() {
         timer?.invalidate()

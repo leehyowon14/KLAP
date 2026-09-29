@@ -41,9 +41,10 @@ MainActor.assumeIsolated {
             let previousScale=pdf.scaleFactor
             precondition(app.sendAction(zoom.action!,to:zoom.target,from:zoom))
             precondition(pdf.scaleFactor>previousScale)
-            let fit=window.toolbar!.items.first{$0.itemIdentifier.rawValue=="fit"}!
+            let fit=window.toolbar!.items.first{$0.itemIdentifier.rawValue=="actualSize"}!
+            precondition(fit.image != nil)
             precondition(app.sendAction(fit.action!,to:fit.target,from:fit))
-            precondition(pdf.autoScales)
+            precondition(!pdf.autoScales && pdf.scaleFactor==1)
             pdf.goToLastPage(nil)
             precondition(pdf.currentPage == pdf.document?.page(at:2))
             if i == 0, let path=ProcessInfo.processInfo.environment["KLAP_PREVIEW_SCREENSHOT"], let view=window.contentView?.superview,
