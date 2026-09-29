@@ -102,6 +102,7 @@ private struct MenuBackdrop: NSViewRepresentable {
                     return event
                 }
                 if event.keyCode == 53, event.window === self.window, self.window.attachedSheet == nil {
+                    if self.model.studyConfirmationPresented { self.model.studyConfirmationPresented=false;return nil }
                     if self.model.boardPresentation == nil { self.hide();return nil }
                     // Let the detail view's cancel button handle Escape, including its disabled state.
                     return event
@@ -115,6 +116,7 @@ private struct MenuBackdrop: NSViewRepresentable {
         pendingShow?.cancel()
         pendingShow=nil
         guard window.attachedSheet == nil else {return}
+        model.studyConfirmationPresented=false
         window.orderOut(nil)
         if let monitor=outsideMonitor {NSEvent.removeMonitor(monitor);outsideMonitor=nil}
         if let monitor=keyMonitor {NSEvent.removeMonitor(monitor);keyMonitor=nil}

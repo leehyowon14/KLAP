@@ -5,7 +5,7 @@ app="${1:-dist/KLAP-Dev.app}"
 executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")
 python3 - "$PWD/$app/Contents/MacOS/$executable" "$PWD/$app" <<'PY'
 import json, pathlib, subprocess, sys, tempfile
-required = {'initialized', 'delegateRetained', 'modelDeferredUntilLaunch', 'accessory', 'statusVisible', 'iconPresent', 'statusHasWidth', 'panelAnchored', 'firstClickOpened', 'panelOpened', 'reopenOpened', 'panelClosed', 'detailIconClosed', 'detailOutsideClosed', 'inactiveIconClosed', 'repeatedToggle'}
+required = {'studyEscapeCancelled', 'studyHideCancelled', 'initialized', 'delegateRetained', 'modelDeferredUntilLaunch', 'accessory', 'statusVisible', 'iconPresent', 'statusHasWidth', 'panelAnchored', 'firstClickOpened', 'panelOpened', 'reopenOpened', 'panelClosed', 'detailIconClosed', 'detailOutsideClosed', 'inactiveIconClosed', 'repeatedToggle'}
 def check(raw):
     values = json.loads(raw)
     if set(values) != required or not all(values.values()):
@@ -20,5 +20,5 @@ with tempfile.TemporaryDirectory(prefix='klap-launch-') as directory:
     errors=pathlib.Path(directory)/'stderr.txt'
     subprocess.run(['open', '-n', '-W', '--stdout', str(output), '--stderr', str(errors), sys.argv[2], '--args', '--smoke-test'],check=True,timeout=15)
     check(output.read_text())
-print('16 startup checks passed for direct launch and macOS app launch')
+print('18 startup checks passed for direct launch and macOS app launch')
 PY

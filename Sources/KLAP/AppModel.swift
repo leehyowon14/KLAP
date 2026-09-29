@@ -7,6 +7,7 @@ import KLAPCore
 @MainActor final class AppModel: ObservableObject {
     let attachments = AttachmentManager()
     let contentNotifications = ContentNotificationService()
+    @Published var studyConfirmationPresented=false
     @Published var newNoticeNotifications = UserDefaults.standard.object(forKey:"newNoticeNotifications") as? Bool ?? true {
         didSet {UserDefaults.standard.set(newNoticeNotifications,forKey:"newNoticeNotifications");if newNoticeNotifications {requestNotifications()}}
     }

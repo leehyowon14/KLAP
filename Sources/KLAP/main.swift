@@ -89,8 +89,14 @@ import KLAPCore
             item.button?.performClick(nil);repeatedToggle = repeatedToggle && panel.isVisible
             item.button?.performClick(nil);repeatedToggle = repeatedToggle && !panel.isVisible
         }
+        show()
+        model.studyConfirmationPresented=true
+        if let window=NSApp.windows.first(where:{$0.title == "KLAP"}),let event=NSEvent.keyEvent(with:.keyDown,location:.zero,modifierFlags:[],timestamp:0,windowNumber:window.windowNumber,context:nil,characters:"\u{1b}",charactersIgnoringModifiers:"\u{1b}",isARepeat:false,keyCode:53) {NSApp.sendEvent(event)}
+        let studyEscapeCancelled = !model.studyConfirmationPresented && panel.isVisible
+        model.studyConfirmationPresented=true
         panel.hide()
-        return ["initialized":true,"delegateRetained":NSApp.delegate === self,
+        let studyHideCancelled = !model.studyConfirmationPresented
+        return ["studyEscapeCancelled":studyEscapeCancelled,"studyHideCancelled":studyHideCancelled,"initialized":true,"delegateRetained":NSApp.delegate === self,
                 "accessory":NSApp.activationPolicy() == .accessory,
                 "statusVisible":item.isVisible,"iconPresent":item.button?.image != nil,
                 "statusHasWidth":(item.button?.frame.width ?? 0) > 0,
