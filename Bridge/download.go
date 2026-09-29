@@ -154,35 +154,76 @@ type pipelineDownloader struct {
 	locale  string
 }
 
+type downloadPhaseResult struct {
+	value app.LectureDownloadAllResult
+	err   error
+}
+type transcriptPhaseResult struct{ value app.LectureTranscriptResult }
+
 func (p pipelineDownloader) DownloadAllLectures(ctx context.Context, opts app.LectureDownloadAllOptions) (app.LectureDownloadAllResult, error) {
-	result, err := p.service.DownloadAllLectures(ctx, opts)
-	if err != nil {
-		return result, err
+	events := make(chan any, 16)
+	go func() {
+		o := opts
+		o.OnProgress = func(v app.LectureDownloadProgress) { events <- v }
+		r, e := p.service.DownloadAllLectures(ctx, o)
+		events <- downloadPhaseResult{r, e}
+	}()
+	queue := []app.LectureDownloadItem{}
+	ids := []string{}
+	seen := map[string]bool{}
+	enqueue := func(item app.LectureDownloadItem) {
+		if ctx.Err() != nil || seen[item.Lecture.ID] || !app.LectureDownloadItemNeedsTranscript(item) {
+			return
+		}
+		seen[item.Lecture.ID] = true
+		queue = append(queue, item)
+		ids = append(ids, item.Lecture.ID)
+		p.send("transcript-queue", append([]string{}, ids...))
+		p.send("transcript-progress", map[string]any{"ID": item.Lecture.ID, "Stage": "transcript-waiting", "Path": "", "Error": "", "Progress": 0})
 	}
-	queue := []string{}
-	for _, item := range result.Items {
-		if app.LectureDownloadItemNeedsTranscript(item) {
-			queue = append(queue, item.Lecture.ID)
+	active := false
+	downloadDone := false
+	var result downloadPhaseResult
+	for !downloadDone || active || len(queue) > 0 {
+		if ctx.Err() != nil {
+			queue = nil
+		}
+		if !active && len(queue) > 0 {
+			item := queue[0]
+			queue = queue[1:]
+			active = true
+			go func() {
+				r := p.service.TranscribeDownloadedLectures(ctx, []app.LectureDownloadItem{item}, app.LectureTranscriptOptions{Locale: p.locale, OnProgress: func(v app.LectureTranscriptProgress) { events <- v }})
+				events <- transcriptPhaseResult{r}
+			}()
+		}
+		if downloadDone && !active {
+			break
+		}
+		switch v := (<-events).(type) {
+		case app.LectureDownloadProgress:
+			if opts.OnProgress != nil {
+				opts.OnProgress(v)
+			}
+			if v.Stage == app.LectureStageDone || v.Stage == app.LectureStageSkip {
+				enqueue(app.LectureDownloadItem{Lecture: v.Lecture, Path: v.Path, Bytes: v.Bytes, Skipped: v.Skipped, Err: v.Err})
+			}
+		case downloadPhaseResult:
+			result = v
+			downloadDone = true
+			for _, item := range v.value.Items {
+				enqueue(item)
+			}
+			p.send("download-finished", true)
+		case app.LectureTranscriptProgress:
+            message:="";if v.Err!=nil{message=v.Err.Error()}
+            p.send("transcript-progress",map[string]any{"ID":v.Lecture.ID,"Stage":v.Stage,"Path":v.OutputPath,"Error":message,"Progress":v.Progress})
+		case transcriptPhaseResult:
+			active = false
 		}
 	}
 	if ctx.Err() != nil {
-		return result, ctx.Err()
+		return result.value, ctx.Err()
 	}
-	p.send("transcript-queue", queue)
-	for _, item := range result.Items {
-		if ctx.Err() != nil {
-			return result, ctx.Err()
-		}
-		if !app.LectureDownloadItemNeedsTranscript(item) {
-			continue
-		}
-		p.service.TranscribeDownloadedLectures(ctx, []app.LectureDownloadItem{item}, app.LectureTranscriptOptions{Locale: p.locale, OnProgress: func(v app.LectureTranscriptProgress) {
-			message := ""
-			if v.Err != nil {
-				message = v.Err.Error()
-			}
-			p.send("transcript-progress", map[string]any{"ID": v.Lecture.ID, "Stage": v.Stage, "Path": v.OutputPath, "Error": message, "Progress": v.Progress})
-		}})
-	}
-	return result, ctx.Err()
+	return result.value, result.err
 }

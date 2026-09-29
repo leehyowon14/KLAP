@@ -5,7 +5,9 @@ import (
 	"errors"
 	"github.com/leehyowon14/KLAP-cli/internal/app"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 type fakeDownloader struct {
@@ -69,23 +71,30 @@ func TestDownloadConcurrency(t *testing.T) {
 }
 
 type fakePipeline struct {
+	mu     sync.Mutex
 	calls  []string
 	cancel context.CancelFunc
 }
 
 func (f *fakePipeline) DownloadAllLectures(ctx context.Context, o app.LectureDownloadAllOptions) (app.LectureDownloadAllResult, error) {
+	f.mu.Lock()
 	f.calls = append(f.calls, "download-start")
+	f.mu.Unlock()
 	if o.OnProgress != nil {
 		o.OnProgress(app.LectureDownloadProgress{Lecture: app.LectureRow{ID: "a"}, Stage: app.LectureStageDone})
 	}
+	f.mu.Lock()
 	f.calls = append(f.calls, "download-end")
+	f.mu.Unlock()
 	return app.LectureDownloadAllResult{Items: []app.LectureDownloadItem{{Lecture: app.LectureRow{ID: "a"}, Path: "/tmp/a.mp4"}, {Lecture: app.LectureRow{ID: "bad"}, Err: errors.New("download failure")}, {Lecture: app.LectureRow{ID: "b"}, Path: "/tmp/b.mp4"}}}, nil
 }
 func (f *fakePipeline) TranscribeDownloadedLectures(ctx context.Context, items []app.LectureDownloadItem, o app.LectureTranscriptOptions) app.LectureTranscriptResult {
 	if len(items) != 1 || o.Locale != "en-US" {
 		panic("sequential transcription or locale lost")
 	}
+	f.mu.Lock()
 	f.calls = append(f.calls, "transcribe-"+items[0].Lecture.ID)
+	f.mu.Unlock()
 	if f.cancel != nil {
 		f.cancel()
 	}
@@ -100,6 +109,9 @@ func TestTranscriptFailurePreservesDownload(t *testing.T) {
 			return
 		}
 		v := data.(map[string]any)
+		if v["Stage"] == "transcript-waiting" {
+			return
+		}
 		transcript = kind == "transcript-progress" && v["Error"] == "speech unavailable"
 	}}
 	result, err := p.DownloadAllLectures(context.Background(), app.LectureDownloadAllOptions{OnProgress: func(app.LectureDownloadProgress) { progress = true }})
@@ -150,12 +162,71 @@ func TestTranscriptQueueAndProgressEvents(t *testing.T) {
 		if kind == "transcript-queue" {
 			ids = value.([]string)
 		}
-		if kind == "transcript-progress" {
+		if kind == "transcript-progress" && value.(map[string]any)["Stage"] != "transcript-waiting" {
 			progress = value.(map[string]any)["Progress"].(float64)
 		}
 	}}
 	_, err := p.DownloadAllLectures(context.Background(), app.LectureDownloadAllOptions{})
 	if err != nil || strings.Join(ids, ",") != "a,b" || progress != 0.4 {
 		t.Fatalf("queue/progress lost: %v %v %v", ids, progress, err)
+	}
+}
+
+type overlappingPipeline struct {
+	started     chan struct{}
+	release     chan struct{}
+	mu          sync.Mutex
+	active, max int
+	order       []string
+}
+
+func (f *overlappingPipeline) DownloadAllLectures(ctx context.Context, o app.LectureDownloadAllOptions) (app.LectureDownloadAllResult, error) {
+	a := app.LectureDownloadItem{Lecture: app.LectureRow{ID: "a"}, Path: "/tmp/a.mp4"}
+	b := app.LectureDownloadItem{Lecture: app.LectureRow{ID: "b"}, Path: "/tmp/b.mp4"}
+	o.OnProgress(app.LectureDownloadProgress{Lecture: a.Lecture, Path: a.Path, Stage: app.LectureStageDone})
+	select {
+	case <-f.started:
+	case <-ctx.Done():
+		return app.LectureDownloadAllResult{}, ctx.Err()
+	}
+	o.OnProgress(app.LectureDownloadProgress{Lecture: b.Lecture, Path: b.Path, Stage: app.LectureStageDone})
+	o.OnProgress(app.LectureDownloadProgress{Lecture: b.Lecture, Path: b.Path, Stage: app.LectureStageDone})
+	close(f.release)
+	return app.LectureDownloadAllResult{Items: []app.LectureDownloadItem{a, b}}, nil
+}
+func (f *overlappingPipeline) TranscribeDownloadedLectures(ctx context.Context, items []app.LectureDownloadItem, o app.LectureTranscriptOptions) app.LectureTranscriptResult {
+	f.mu.Lock()
+	f.active++
+	if f.active > f.max {
+		f.max = f.active
+	}
+	f.order = append(f.order, items[0].Lecture.ID)
+	f.mu.Unlock()
+	if items[0].Lecture.ID == "a" {
+		close(f.started)
+		select {
+		case <-f.release:
+		case <-ctx.Done():
+		}
+	}
+	o.OnProgress(app.LectureTranscriptProgress{Lecture: items[0].Lecture, Stage: app.LectureStageTranscribed})
+	f.mu.Lock()
+	f.active--
+	f.mu.Unlock()
+	return app.LectureTranscriptResult{}
+}
+func TestOverlappingDownloadsSingleTranscriptWorker(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	f := &overlappingPipeline{started: make(chan struct{}), release: make(chan struct{})}
+	finished := false
+	p := pipelineDownloader{service: f, locale: "ko-KR", send: func(kind string, _ any) {
+		if kind == "download-finished" {
+			finished = true
+		}
+	}}
+	_, err := p.DownloadAllLectures(ctx, app.LectureDownloadAllOptions{})
+	if err != nil || !finished || f.max != 1 || strings.Join(f.order, ",") != "a,b" {
+		t.Fatalf("overlap/dedup/single worker: %v %v %d", err, f.order, f.max)
 	}
 }
