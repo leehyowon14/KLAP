@@ -31,11 +31,16 @@ import Sparkle
         }.store(in:&subscriptions)
     }
     func start() {
+        guard Bundle.main.object(forInfoDictionaryKey:"KLAPDevelopmentBuild") as? Bool != true else {
+            status="개발 빌드는 자동 업데이트를 사용하지 않습니다."
+            return
+        }
         guard !started else {return}
         started=true
         controller.startUpdater()
     }
     func setAutomatic(_ enabled:Bool) {
+        guard Bundle.main.object(forInfoDictionaryKey:"KLAPDevelopmentBuild") as? Bool != true else {return}
         controller.updater.automaticallyDownloadsUpdates=enabled
         controller.updater.automaticallyChecksForUpdates=enabled
     }

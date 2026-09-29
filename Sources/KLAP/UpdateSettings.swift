@@ -14,7 +14,7 @@ struct UpdateSettings:View {
                     Text("자동 업데이트").font(.callout.weight(.medium))
                     Text("새 버전을 자동으로 확인·다운로드하고 앱 종료 시 설치합니다.").font(.caption).foregroundStyle(.secondary)
                 }.frame(maxWidth:.infinity,alignment:.leading)
-            }.toggleStyle(.switch).controlSize(.small)
+            }.toggleStyle(.switch).controlSize(.small).disabled(Bundle.main.object(forInfoDictionaryKey:"KLAPDevelopmentBuild") as? Bool == true)
             Rectangle().fill(Theme.line).frame(height:1)
             HStack(alignment:.center) {
                 VStack(alignment:.leading,spacing:4) {
