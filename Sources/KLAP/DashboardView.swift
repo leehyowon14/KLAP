@@ -224,6 +224,7 @@ struct DashboardView: View {
                 }
             } else {
                 NoticesView(model:model)
+                MaterialsView(model:model)
                 HStack {
                     Text("강의").font(.system(size:16,weight:.bold))
                     Spacer()
