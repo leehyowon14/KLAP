@@ -1,133 +1,148 @@
 import AppKit
-import Quartz
 import PDFKit
 import UniformTypeIdentifiers
 import KLAPCore
 
 @MainActor final class AttachmentManager: NSObject, NSWindowDelegate, NSToolbarDelegate {
-    private var store: PreviewFileStore?
-    private var startupError: Error?
-    private var timer: Timer?
-    private var observers: [NSObjectProtocol] = []
-    private var previewWindow: NSWindow?
-    private var previewView: QLPreviewView?
-    private var pdfView: PDFView?
-    private var previewKey: String?
-    private var previewDownload: (() -> Void)?
-    private let downloadItemID = NSToolbarItem.Identifier("KLAP.preview.download")
-    private let downloadsDirectory: URL?
-    init(root: URL = FileManager.default.temporaryDirectory.appendingPathComponent("KLAP-previews",isDirectory:true), downloadsDirectory: URL? = nil) {
-        self.downloadsDirectory = downloadsDirectory
+    private let store=MemoryPreviewStore()
+    private var timer:Timer?
+    private var pageObserver:NSObjectProtocol?
+    private var previewWindow:NSWindow?
+    private var pdfView:PDFView?
+    private var previewKey:String?
+    private var previewDownload:(()->Void)?
+    private let downloadItemID=NSToolbarItem.Identifier("KLAP.preview.download")
+    private let downloadsDirectory:URL?
+    init(root:URL=FileManager.default.temporaryDirectory.appendingPathComponent("KLAP-previews"),downloadsDirectory:URL?=nil) {
+        self.downloadsDirectory=downloadsDirectory
         super.init()
-        do { store=try PreviewFileStore(root:root) }
-        catch { startupError=error }
-        scheduleCleanup()
-        observers.append(NotificationCenter.default.addObserver(forName:NSApplication.willTerminateNotification,object:nil,queue:.main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.closePreview() }
-        })
-        observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.didWakeNotification,object:nil,queue:.main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.cleanExpired() }
-        })
+        // Migration: previews are no longer persisted.
+        if FileManager.default.fileExists(atPath:root.path) {try? FileManager.default.removeItem(at:root)}
     }
-    private func storage() throws -> PreviewFileStore {
-        guard let store else { throw startupError ?? CocoaError(.fileWriteUnknown) }; return store
-    }
-    var directory: String { get throws { try storage().root.path } }
     func key(_ reference:BoardReference,_ file:BoardFile) -> String {
         let values=[reference.Kind,reference.TermValue,reference.SubjectID,reference.BoardNo,reference.MasterNo,file.FileSN,file.Name,String(file.Size)]
         return (try? String(data:JSONEncoder().encode(values),encoding:.utf8)) ?? UUID().uuidString
     }
-    func cached(_ key:String) throws -> URL? { try storage().cached(key) }
-    func register(_ url:URL,key:String) throws { try storage().register(url,key:key); scheduleCleanup() }
-    func save(_ key:String) throws -> URL {
-        if previewKey == key { closePreview() }
-        let directory=try downloadsDirectory ?? FileManager.default.url(for:.downloadsDirectory,in:.userDomainMask,appropriateFor:nil,create:true)
-        let saved=try storage().moveToDownloads(key,directory:directory)
+    func cached(_ key:String)->MemoryPreviewStore.Item? {store.cached(key)}
+    func register(_ data:Data,name:String,key:String)throws {try store.register(data,name:name,key:key);scheduleCleanup()}
+    private func downloads()throws->URL {try downloadsDirectory ?? FileManager.default.url(for:.downloadsDirectory,in:.userDomainMask,appropriateFor:nil,create:true)}
+    func save(_ key:String)throws->URL {
+        let saved=try store.save(key,to:downloads())
+        if previewKey==key {closePreview()}
         scheduleCleanup()
         return saved
     }
-    func show(_ url:URL,key:String,download:@escaping () -> Void) throws {
+    func saveDownloadedFile(_ url:URL)throws->URL {
+        let destination=try downloads()
+        try FileManager.default.createDirectory(at:destination,withIntermediateDirectories:true)
+        var index=0
+        while true {
+            let name=index==0 ? url.lastPathComponent : "\(url.deletingPathExtension().lastPathComponent) (\(index)).\(url.pathExtension)"
+            let target=destination.appendingPathComponent(name)
+            do {try FileManager.default.moveItem(at:url,to:target);return target}
+            catch let error as CocoaError where error.code == .fileWriteFileExists {index+=1}
+        }
+    }
+    func show(key:String,download:@escaping ()->Void)throws {
+        guard let item=store.cached(key) else {throw CocoaError(.fileNoSuchFile)}
         closePreview()
-        try storage().opened(key)
-        previewKey=key
-        let window=NSPanel(contentRect:NSRect(x:0,y:0,width:760,height:720),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
-        window.title=url.lastPathComponent
+        let window=NSPanel(contentRect:NSRect(x:0,y:0,width:900,height:720),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
+        window.title=item.name
         window.isReleasedWhenClosed=false
         window.delegate=self
         window.minSize=NSSize(width:520,height:420)
-        window.titlebarAppearsTransparent=true
         window.toolbarStyle = .unified
-        window.backgroundColor = .windowBackgroundColor
-        let size=(try? url.resourceValues(forKeys:[.fileSizeKey]).fileSize).map { ByteCountFormatter.string(fromByteCount:Int64($0),countStyle:.file) }
-        window.subtitle=[url.pathExtension.uppercased(),size].compactMap{$0}.filter{!$0.isEmpty}.joined(separator:" · ")
         let toolbar=NSToolbar(identifier:"KLAP.preview")
-        toolbar.delegate=self
-        toolbar.displayMode = .iconOnly
-        toolbar.allowsUserCustomization=false
-        window.titlebarSeparatorStyle = .none
+        toolbar.delegate=self;toolbar.displayMode = .iconOnly
         window.toolbar=toolbar
-        previewDownload=download
-        if url.pathExtension.lowercased() == "pdf", let document=PDFDocument(url:url) {
-            let view=PDFView(frame:window.contentLayoutRect)
+        if let screen=NSScreen.main {window.setContentSize(NSSize(width:min(900,screen.visibleFrame.width-80),height:min(720,screen.visibleFrame.height-100)))}
+        let host=NSView()
+        window.contentView=host
+        let content:NSView
+        if URL(fileURLWithPath:item.name).pathExtension.lowercased()=="pdf",let document=PDFDocument(data:item.data) {
+            let view=PDFView()
             view.displayMode = .singlePageContinuous
             view.displayDirection = .vertical
             view.displaysPageBreaks=true
-            view.backgroundColor = .windowBackgroundColor
             view.document=document
+            content=view;pdfView=view
+        } else if let image=NSImage(data:item.data) {
+            let view=NSImageView()
+            view.image=image;view.imageScaling = .scaleProportionallyUpOrDown
+            content=view
+        } else if let text=String(data:item.data,encoding:.utf8) ?? String(data:item.data,encoding:.utf16) {
+            let scroll=NSScrollView();scroll.hasVerticalScroller=true
+            let view=NSTextView();view.string=text;view.isEditable=false
+            view.isVerticallyResizable=true;view.autoresizingMask=[.width]
+            view.textContainer?.widthTracksTextView=true
+            scroll.documentView=view;content=scroll
+        } else {throw CocoaError(.fileReadCorruptFile)}
+        host.addSubview(content);content.translatesAutoresizingMaskIntoConstraints=false
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(equalTo:host.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo:host.trailingAnchor),
+            content.topAnchor.constraint(equalTo:(window.contentLayoutGuide as! NSLayoutGuide).topAnchor),
+            content.bottomAnchor.constraint(equalTo:host.bottomAnchor)
+        ])
+        previewWindow=window;previewKey=key;previewDownload=download;store.opened(key)
+        window.center();window.makeKeyAndOrderFront(nil)
+        host.layoutSubtreeIfNeeded()
+        if let view=pdfView {
             view.autoScales=true
-            window.contentView=view
-            pdfView=view
-        } else {
-            let view=QLPreviewView(frame:window.contentLayoutRect,style:.compact)!
-            // This controller closes the view exactly once in windowWillClose.
-            view.shouldCloseWithWindow=false
-            view.autostarts=false
-            view.previewItem=url as NSURL
-            window.contentView=view
-            previewView=view
-        }
-        if let screen=NSScreen.main {
-            window.setContentSize(NSSize(width:min(760,screen.visibleFrame.width-80),height:min(720,screen.visibleFrame.height-100)))
-        }
-        previewWindow=window
-        window.center();window.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)
-        scheduleCleanup()
+            view.layoutDocumentView()
+            if let first=view.document?.page(at:0) {
+                let bounds=first.bounds(for:view.displayBox)
+                view.go(to:PDFDestination(page:first,at:NSPoint(x:bounds.minX,y:bounds.maxY)))
+            }
+            pageObserver=NotificationCenter.default.addObserver(forName:.PDFViewPageChanged,object:view,queue:.main) {[weak self] _ in
+                MainActor.assumeIsolated {self?.updatePage()}
+            }
+            updatePage()
+        } else {window.subtitle=ByteCountFormatter.string(fromByteCount:Int64(item.data.count),countStyle:.file)}
+        NSApp.activate(ignoringOtherApps:true);scheduleCleanup()
     }
-    func closePreview() { previewWindow?.close() }
+    private func updatePage() {
+        guard let view=pdfView,let document=view.document,let page=view.currentPage else {return}
+        previewWindow?.subtitle="\(document.index(for:page)+1) / \(document.pageCount)페이지"
+    }
+    func closePreview(){previewWindow?.close()}
     func windowWillClose(_ notification:Notification) {
-        pdfView?.document=nil
-        pdfView=nil
-        previewView?.close()
-        previewView=nil
-        if let key=previewKey { do { try storage().closed(key) } catch { NSLog("KLAP preview expiry persistence failed") } }
+        if let observer=pageObserver {NotificationCenter.default.removeObserver(observer)}
+        pageObserver=nil;pdfView=nil
+        if let key=previewKey {store.closed(key)}
         previewWindow=nil;previewKey=nil;previewDownload=nil;scheduleCleanup()
     }
-    func toolbarAllowedItemIdentifiers(_ toolbar:NSToolbar) -> [NSToolbarItem.Identifier] { [.flexibleSpace,downloadItemID] }
-    func toolbarDefaultItemIdentifiers(_ toolbar:NSToolbar) -> [NSToolbarItem.Identifier] { [.flexibleSpace,downloadItemID] }
-    func toolbar(_ toolbar:NSToolbar,itemForItemIdentifier identifier:NSToolbarItem.Identifier,willBeInsertedIntoToolbar flag:Bool) -> NSToolbarItem? {
-        guard identifier == downloadItemID else { return nil }
-        let item=NSToolbarItem(itemIdentifier:identifier)
-        item.label="다운로드"
-        item.toolTip="다운로드 폴더에 저장"
-        item.image=NSImage(systemSymbolName:"arrow.down.to.line",accessibilityDescription:"다운로드")
-        item.target=self;item.action=#selector(downloadPreview)
+    func toolbarAllowedItemIdentifiers(_ toolbar:NSToolbar)->[NSToolbarItem.Identifier] {
+        [.flexibleSpace,.init("zoomOut"),.init("fit"),.init("zoomIn"),downloadItemID]
+    }
+    func toolbarDefaultItemIdentifiers(_ toolbar:NSToolbar)->[NSToolbarItem.Identifier] {toolbarAllowedItemIdentifiers(toolbar)}
+    func toolbar(_ toolbar:NSToolbar,itemForItemIdentifier id:NSToolbarItem.Identifier,willBeInsertedIntoToolbar flag:Bool)->NSToolbarItem? {
+        let item=NSToolbarItem(itemIdentifier:id)
+        let config:(String,String,Selector)
+        switch id.rawValue {
+        case "zoomOut":config=("축소","minus.magnifyingglass",#selector(zoomOut))
+        case "zoomIn":config=("확대","plus.magnifyingglass",#selector(zoomIn))
+        case "fit":config=("페이지 맞춤","arrow.up.left.and.arrow.down.right",#selector(fit))
+        case downloadItemID.rawValue:config=("다운로드","arrow.down.to.line",#selector(downloadPreview))
+        default:return nil
+        }
+        item.label=config.0;item.toolTip=config.0;item.image=NSImage(systemSymbolName:config.1,accessibilityDescription:config.0)
+        item.target=self;item.action=config.2
         return item
     }
-    @objc private func downloadPreview() {
-        let action=previewDownload
-        action?()
-    }
-    private func cleanExpired() { do { try store?.cleanup() } catch { NSLog("KLAP preview cleanup failed") }; scheduleCleanup() }
+    @objc private func zoomOut(){pdfView?.autoScales=false;pdfView?.zoomOut(nil)}
+    @objc private func zoomIn(){pdfView?.autoScales=false;pdfView?.zoomIn(nil)}
+    @objc private func fit(){pdfView?.autoScales=true}
+    @objc private func downloadPreview(){let action=previewDownload;action?()}
     private func scheduleCleanup() {
         timer?.invalidate()
-        guard let next=store?.nextExpiration else { return }
-        timer=Timer.scheduledTimer(withTimeInterval:max(1,next.timeIntervalSinceNow),repeats:false) { [weak self] _ in
-            MainActor.assumeIsolated { self?.cleanExpired() }
+        guard let next=store.nextExpiration else {return}
+        timer=Timer.scheduledTimer(withTimeInterval:max(1,next.timeIntervalSinceNow),repeats:false) {[weak self] _ in
+            MainActor.assumeIsolated {self?.store.cleanup();self?.scheduleCleanup()}
         }
     }
-    static func canPreview(_ name:String) -> Bool {
-        let ext=URL(fileURLWithPath:name).pathExtension.lowercased()
-        guard let type=UTType(filenameExtension:ext) else { return false }
-        return type.conforms(to:.pdf) || type.conforms(to:.image) || type.conforms(to:.text) || type.conforms(to:.movie) || type.conforms(to:.audio) || ["doc","docx","xls","xlsx","ppt","pptx","pages","numbers","key"].contains(ext)
+    static func canPreview(_ name:String)->Bool {
+        guard let type=UTType(filenameExtension:URL(fileURLWithPath:name).pathExtension) else {return false}
+        return type.conforms(to:.pdf) || type.conforms(to:.image) || type.conforms(to:.plainText)
     }
 }
