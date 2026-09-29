@@ -33,6 +33,8 @@ public struct LectureRow: Codable, Identifiable {
 public struct Lecture: Codable {
     public let Title: String
     public let Progress: String
+    public let AchievedTime: String?
+    public let RequiredTime: String?
     public let EndAt: String?
 }
 public struct LectureItem: Codable, Identifiable {
@@ -77,6 +79,8 @@ public struct SyncResult: Codable {
     public let conflicts: [SyncConflict]?
 }
 public struct StudyEvent: Decodable {
+    public var achieved: String?
+    public var required: String?
     public var id: String?
     public var title: String?
     public var percent: Double?

@@ -35,7 +35,7 @@ func runAttendance(ctx context.Context, service attender, idsInput []string, sen
 		}
 		send("start", map[string]any{"id": id, "current": i + 1, "total": len(ids)})
 		v, e := service.AttendLecture(ctx, id, app.LectureAttendOptions{RequireEligible: true, OnProgress: func(row app.LectureRow, p app.LectureProgress) {
-			send("progress", map[string]any{"id": id, "title": row.Lecture.Title, "percent": p.Progress, "current": i + 1, "total": len(ids)})
+			send("progress", map[string]any{"id": id, "title": row.Lecture.Title, "percent": p.Progress, "achieved": p.TotalTime, "required": p.PTime, "current": i + 1, "total": len(ids)})
 		}})
 		if ctx.Err() != nil {
 			err = ctx.Err()

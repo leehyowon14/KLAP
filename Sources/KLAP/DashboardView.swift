@@ -93,7 +93,8 @@ struct DashboardView: View {
         VStack(alignment:.leading,spacing:6) {
             HStack { Text(model.studyTitle).font(.headline).lineLimit(1);Spacer();Text(model.progress?.label ?? "").monospacedDigit();Button("취소",role:.destructive) { model.cancel() } }
             ProgressView(value:model.progress?.fraction ?? 0)
-            Text("\(Int((model.progress?.fraction ?? 0)*100))% · 메뉴바에서도 진행 상태를 확인할 수 있습니다").font(.caption).foregroundStyle(.secondary)
+            Text("\(Int((model.progress?.fraction ?? 0)*100))% · 수강 \(StudyTime.minutes(model.studyTime.achieved)) / 남은 시간 \(StudyTime.minutes(model.studyTime.remaining))").font(.callout)
+            Text("전체 큐 예상 남은 시간 · \(StudyTime.minutes(model.queueRemaining))").font(.caption).foregroundStyle(.secondary)
         }.padding(12).background(Color.accentColor.opacity(0.08),in:RoundedRectangle(cornerRadius:10))
     }
     private var conflicts: some View {

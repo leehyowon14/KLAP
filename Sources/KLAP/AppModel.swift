@@ -13,6 +13,23 @@ import KLAPCore
     @Published var message = "KLAS에 연결해 주세요"
     @Published var error: String?
     @Published var progress: StudyProgress?
+    @Published var studyTime = StudyTime(achieved:nil,required:nil)
+    @Published var queueRemaining: Double?
+    private var studyQueue: [String] = []
+    private var activeStudyID: String?
+    private func updateStudyTime(id:String?, achieved:String?=nil, required:String?=nil) {
+        guard let id, let index=studyQueue.firstIndex(of:id) else { return }
+        activeStudyID=id
+        let lecture=snapshot.lectures?.first(where:{$0.id == id})?.row.Lecture
+        studyTime=StudyTime(achieved:achieved ?? lecture?.AchievedTime,required:required ?? lecture?.RequiredTime)
+        var remaining=studyTime.remaining
+        for next in studyQueue.dropFirst(index+1) {
+            let row=snapshot.lectures?.first(where:{$0.id == next})?.row.Lecture
+            let time=StudyTime(achieved:row?.AchievedTime,required:row?.RequiredTime)
+            if let total=remaining, let next=time.remaining { remaining=total+next } else { remaining=nil }
+        }
+        queueRemaining=remaining
+    }
     @Published var studyTitle = ""
     @Published var conflicts: [SyncConflict] = []
     @Published var selectedCourse: String?
@@ -171,16 +188,20 @@ import KLAPCore
     func attend(_ ids: [String]) async {
         guard !busy, !ids.isEmpty else { return }
         cancelled = false; studying = true; requestNotifications()
+        studyQueue=ids.reduce(into:[]) { if !$0.contains($1) { $0.append($1) } }
+        updateStudyTime(id:studyQueue.first)
         progress = StudyProgress(percent: 0, current: 0, total: ids.count)
         await perform(["Command":"attend", "IDs":ids]) { [self] event in
             let value = try event.decode(StudyEvent.self)
             let title = value.title ?? snapshot.lectures?.first(where: { $0.id == value.id })?.row.Lecture.Title ?? "강의"
             switch event.kind {
             case "start":
+                updateStudyTime(id:value.id)
                 studyTitle = title
                 progress = StudyProgress(percent: 0, current: value.current ?? 0, total: value.total ?? ids.count)
                 if (value.current ?? 0) > 1 { notify("다음 강의 수강 시작", "\(title) · \(progress?.label ?? "")") }
             case "progress":
+                updateStudyTime(id:value.id,achieved:value.achieved,required:value.required)
                 studyTitle = title
                 progress = StudyProgress(percent: value.percent ?? 0, current: value.current ?? 0, total: value.total ?? ids.count)
             case "completed": notify("수강 완료", "\(title) · \(value.current ?? 0)/\(value.total ?? ids.count)")
