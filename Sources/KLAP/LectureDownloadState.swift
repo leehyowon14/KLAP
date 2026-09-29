@@ -24,7 +24,7 @@ struct LectureDownloadRow {
     var speed:Double=0
     var sampleTime:Date?
     var sampleBytes:Int64=0
-    var finished:Bool {stage == "done" || stage == "skip"}
+    var finished:Bool {(stage == "done" || stage == "skip") && error == nil && path?.isEmpty == false}
     var fraction:Double? {total>0 ? min(1,max(0,Double(bytes)/Double(total))) : nil}
     var label:String {
         switch stage {
@@ -88,7 +88,7 @@ struct LectureDownloadState {
             } else {row.speed=0;row.sampleTime=now;row.sampleBytes=progress.Bytes}
             rows[progress.ID]=row
         }
-        rows[progress.ID]?.stage=cancelling && progress.Stage == "error" ? "cancelled" : progress.Stage
+        rows[progress.ID]?.stage=progress.Error.isEmpty ? progress.Stage : (cancelling ? "cancelled" : "error")
         rows[progress.ID]?.bytes=max(0,progress.Bytes)
         rows[progress.ID]?.total=max(0,progress.TotalBytes)
         rows[progress.ID]?.error=cancelling || progress.Error.isEmpty ? nil : progress.Error
