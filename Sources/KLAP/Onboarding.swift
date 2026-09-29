@@ -89,22 +89,27 @@ struct OnboardingView: View {
                         Text("비밀번호").font(.caption.weight(.medium)).foregroundStyle(.secondary)
                         SecureField("KLAS 비밀번호",text:$password).accessibilityLabel("비밀번호").modifier(AccountFieldStyle())
                     }
+                    if let error=model.error {
+                        Label(error,systemImage:"exclamationmark.circle.fill")
+                            .font(.system(size:14,weight:.medium)).foregroundStyle(.red)
+                            .fixedSize(horizontal:false,vertical:true).textSelection(.enabled)
+                    }
                 }
                 HStack {
                     Button("저장된 계정 사용") {Task {await model.refresh();if model.snapshot.timetable != nil {setup.step=1}}}
-                        .buttonStyle(.borderless).disabled(model.busy)
+                        .buttonStyle(FormButtonStyle()).disabled(model.busy)
                     Spacer()
                     Button("로그인하고 계속") {
                         let secret=password;password=""
                         Task {if await model.login(studentID:studentID,password:secret) {setup.step=1}}
-                    }.buttonStyle(.borderedProminent).disabled(model.busy || studentID.trimmingCharacters(in:.whitespaces).isEmpty || password.isEmpty)
+                    }.buttonStyle(FormButtonStyle(prominent:true)).disabled(model.busy || studentID.trimmingCharacters(in:.whitespaces).isEmpty || password.isEmpty)
                 }
             } else if setup.step == 1 {
                 if !setup.ready {
                     VStack(alignment:.leading,spacing:10) {
                         Button(setup.loading ? "권한 확인 중…" : "캘린더·미리 알림 접근 허용") {Task {await setup.requestAccess()}}
-                            .buttonStyle(.borderedProminent).disabled(setup.loading)
-                        Button("시스템 권한 설정 열기") {setup.openPrivacySettings()}.buttonStyle(.borderless).font(.caption)
+                            .buttonStyle(FormButtonStyle(prominent:true)).disabled(setup.loading)
+                        Button("시스템 권한 설정 열기") {setup.openPrivacySettings()}.buttonStyle(FormButtonStyle()).font(.caption)
                     }
                 } else {
                     VStack(spacing:12) {
@@ -115,9 +120,9 @@ struct OnboardingView: View {
                 }
                 if let error=setup.error {Text(error).font(.caption).foregroundStyle(.orange)}
                 HStack {
-                    Button("이전") {setup.step=0}.buttonStyle(.borderless)
+                    Button("이전") {setup.step=0}.buttonStyle(FormButtonStyle())
                     Spacer()
-                    Button("다음") {setup.step=2}.buttonStyle(.borderedProminent).disabled(!setup.ready)
+                    Button("다음") {setup.step=2}.buttonStyle(FormButtonStyle(prominent:true)).disabled(!setup.ready)
                 }
             } else {
                 VStack(alignment:.leading,spacing:12) {
@@ -125,13 +130,13 @@ struct OnboardingView: View {
                     Toggle("강의 완료·전환·오류 알림",isOn:$model.notifications)
                 }.toggleStyle(.switch).controlSize(.small)
                 HStack {
-                    Button("이전") {setup.step=1}.buttonStyle(.borderless)
+                    Button("이전") {setup.step=1}.buttonStyle(FormButtonStyle())
                     Spacer()
-                    Button("저장하고 첫 동기화") {Task {await model.finishSetup()}}.buttonStyle(.borderedProminent).disabled(model.busy)
+                    Button("저장하고 첫 동기화") {Task {await model.finishSetup()}}.buttonStyle(FormButtonStyle(prominent:true)).disabled(model.busy)
                 }
             }
-            if let error=model.error {Text(error).font(.caption).foregroundStyle(.orange).textSelection(.enabled)}
-            Button("나중에 설정") {model.skipSetup()}.buttonStyle(.borderless).font(.caption).foregroundStyle(.secondary).disabled(model.busy || setup.loading)
+            if setup.step != 0, let error=model.error {Text(error).font(.caption).foregroundStyle(.orange).textSelection(.enabled)}
+            Button("나중에 설정") {model.skipSetup()}.buttonStyle(FormButtonStyle()).font(.caption).foregroundStyle(.secondary).disabled(model.busy || setup.loading)
         }.padding(.vertical,8).frame(maxWidth:.infinity,alignment:.leading)
     }
     private var title: String {
@@ -143,12 +148,23 @@ struct OnboardingView: View {
          "앱이 실행 중일 때 동기화하고, 잠자기에서 깨어나면 다시 갱신합니다."][setup.step]
     }
     private func destination(_ label:String,selection:Binding<String>,options:[String],newName:String)->some View {
-        HStack {
-            Text(label).font(.callout.weight(.medium)).frame(width:64,alignment:.leading)
-            Picker(label,selection:selection) {
-                Text("새로 만들기 · \(newName)").tag("")
-                ForEach(options,id:\.self) {Text($0).tag($0)}
-            }.labelsHidden().frame(maxWidth:.infinity)
+        VStack(alignment:.leading,spacing:5) {
+            Text(label).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+            Menu {
+                Button("새로 만들기 · \(newName)") { selection.wrappedValue = "" }
+                ForEach(options,id:\.self) { name in
+                    Button(name) { selection.wrappedValue = name }
+                }
+            } label: {
+                HStack {
+                    Text(selection.wrappedValue.isEmpty ? "새로 만들기 · \(newName)" : selection.wrappedValue)
+                        .lineLimit(1).truncationMode(.middle)
+                    Spacer()
+                    Image(systemName:"chevron.up.chevron.down").font(.caption)
+                }.font(.system(size:14)).padding(.horizontal,12).frame(maxWidth:.infinity).frame(height:44)
+                    .background(.background.opacity(0.65),in:RoundedRectangle(cornerRadius:9))
+                    .overlay(RoundedRectangle(cornerRadius:9).strokeBorder(Color.primary.opacity(0.2)))
+            }.menuStyle(.borderlessButton).menuIndicator(.hidden).accessibilityLabel(label)
         }
     }
 }
