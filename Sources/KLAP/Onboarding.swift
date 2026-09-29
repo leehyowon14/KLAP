@@ -89,7 +89,7 @@ struct OnboardingView: View {
                     }
                     VStack(alignment:.leading,spacing:5) {
                         Text("비밀번호").font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                        SecureField("KLAS 비밀번호",text:$password).accessibilityLabel("비밀번호").modifier(AccountFieldStyle())
+                        PasswordField(placeholder:"KLAS 비밀번호",text:$password)
                     }
                     if let error=model.error {
                         Label(error,systemImage:"exclamationmark.circle.fill")
