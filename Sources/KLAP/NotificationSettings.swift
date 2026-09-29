@@ -16,15 +16,15 @@ struct NotificationSettings:View {
                 .font(.caption).foregroundStyle(.secondary)
             if service.authorization == .denied {
                 HStack {
-                    Text("macOS에서 알림이 꺼져 있습니다.").font(.caption).foregroundStyle(.secondary)
+                    Text(service.deliveryError ?? "macOS에서 KLAP 알림이 꺼져 있습니다.").font(.caption).foregroundStyle(.secondary)
                     Spacer()
-                    Button("시스템 설정 열기") {NSWorkspace.shared.open(URL(fileURLWithPath:"/System/Applications/System Settings.app"))}
+                    Button("KLAP 알림 설정") {service.openSettings()}
                         .buttonStyle(FormButtonStyle(compact:true))
                 }
             } else if service.authorization == .notDetermined {
-                Button("알림 허용") {service.requestAuthorization()}.buttonStyle(FormButtonStyle(compact:true))
+                Button(service.requestingPermission ? "권한 요청 중…" : "알림 허용 요청") {service.requestAuthorization()}.buttonStyle(FormButtonStyle(compact:true)).disabled(service.requestingPermission)
             }
-            if let error=service.deliveryError {Text(error).font(.caption).foregroundStyle(.red)}
+            if service.authorization != .denied,let error=service.deliveryError {Text(error).font(.caption).foregroundStyle(.red)}
         }.toggleStyle(.switch).controlSize(.small).frame(maxWidth:.infinity,alignment:.leading)
             .padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
             .task {await service.updateAuthorization()}

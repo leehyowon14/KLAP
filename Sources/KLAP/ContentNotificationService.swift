@@ -9,11 +9,18 @@ import KLAPCore
     static let tokenKey="KLAP.contentAlert"
     @Published private(set) var authorization:UNAuthorizationStatus = .notDetermined
     @Published private(set) var deliveryError:String?
+    @Published private(set) var requestingPermission=false
+    private let readAuthorization:() async -> UNAuthorizationStatus
+    private let authorize:() async throws -> Bool
     private(set) var history:ContentNotificationHistory
     private let defaults:UserDefaults
     private let key="contentNotifications.v1"
     private let center=UNUserNotificationCenter.current()
-    init(defaults:UserDefaults = .standard) {
+    init(defaults:UserDefaults = .standard,
+         readAuthorization:(() async -> UNAuthorizationStatus)?=nil,
+         authorize:(() async throws -> Bool)?=nil) {
+        self.readAuthorization=readAuthorization ?? {await UNUserNotificationCenter.current().notificationSettings().authorizationStatus}
+        self.authorize=authorize ?? {try await UNUserNotificationCenter.current().requestAuthorization(options:[.alert,.sound])}
         self.defaults=defaults
         history=defaults.data(forKey:key).flatMap{try? JSONDecoder().decode(ContentNotificationHistory.self,from:$0)} ?? ContentNotificationHistory()
     }
@@ -29,12 +36,35 @@ import KLAPCore
         ])
     }
     func register() {center.setNotificationCategories(Self.categories());Task {await updateAuthorization()}}
-    func updateAuthorization() async {authorization=await center.notificationSettings().authorizationStatus}
-    func requestAuthorization() {
-        Task {
-            do {_ = try await center.requestAuthorization(options:[.alert,.sound]);deliveryError=nil}
-            catch {deliveryError=error.localizedDescription}
-            await updateAuthorization()
+    func updateAuthorization() async {
+        authorization=await readAuthorization()
+        if authorization == .denied {deliveryError=nil}
+    }
+    func requestAuthorization() {Task {await requestAuthorizationIfNeeded()}}
+    func requestAuthorizationIfNeeded() async {
+        guard !requestingPermission else {return}
+        requestingPermission=true
+        defer {requestingPermission=false}
+        await updateAuthorization()
+        // macOS only presents the permission dialog for an undecided app.
+        // Repeating the call after denial produces a redundant system error.
+        guard authorization == .notDetermined else {return}
+        deliveryError=nil
+        do {_ = try await authorize()}
+        catch {
+            deliveryError="알림 권한을 요청하지 못했습니다. 잠시 후 다시 시도해 주세요."
+        }
+        await updateAuthorization()
+    }
+    static func settingsURL(bundleID:String)->URL {
+        var url=URLComponents(string:"x-apple.systempreferences:com.apple.Notifications-Settings.extension")!
+        url.queryItems=[URLQueryItem(name:"id",value:bundleID)]
+        return url.url!
+    }
+    func openSettings() {
+        let url=Self.settingsURL(bundleID:Bundle.main.bundleIdentifier ?? "dev.leehyowon.klap.mac")
+        if !NSWorkspace.shared.open(url) {
+            deliveryError="알림 설정을 열지 못했습니다. 시스템 설정의 알림에서 KLAP을 선택해 주세요."
         }
     }
     static func content(_ alert:ContentAlert)->UNMutableNotificationContent {
@@ -68,7 +98,10 @@ import KLAPCore
                     center.removeDeliveredNotifications(withIdentifiers:["KLAP.content."+alert.id])
                 }
                 history.markDelivered(alert.id);persist();deliveryError=nil
-            } catch {deliveryError="알림을 보내지 못했습니다: "+error.localizedDescription}
+            } catch {
+                await updateAuthorization()
+                if authorization != .denied {deliveryError="알림을 보내지 못했습니다. 잠시 후 다시 시도해 주세요."}
+            }
         }
     }
     func clearDelivered() {center.removeAllDeliveredNotifications();center.removeAllPendingNotificationRequests()}
