@@ -95,3 +95,13 @@ expect(LectureStatus.date(serverLecture.FirstStartedAt) != nil && LectureStatus.
 let legacyLecture=try JSONDecoder().decode(Lecture.self,from:Data(#"{"Title":"sample","Progress":"0"}"#.utf8))
 expect(legacyLecture.FirstStartedAt == nil && legacyLecture.FirstCompletedAt == nil,"Older cache timestamps unknown")
 print("2 CLI timestamp contract checks passed")
+
+let periodRows=TimetableClock.placements(try [makeEntry(1),makeEntry(1,2),makeEntry(3)],byPeriod:true)
+expect(periodRows.map(\.start) == [1,1,3],"Period grid starts")
+expect(periodRows.map(\.end) == [2,3,4],"Period spans preserved")
+expect(periodRows.map(\.lane) == [0,1,0],"Period overlaps and adjacency")
+let nightRows=TimetableClock.placements(try [makeEntry(11)],byPeriod:true)
+expect(nightRows.first?.end == 12,"Last period boundary")
+let onlineRows=TimetableClock.placements(try [makeEntry(1,online:true)],byPeriod:true)
+expect(onlineRows.isEmpty,"Online outside period grid")
+print("5 period grid checks passed")

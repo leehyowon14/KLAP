@@ -20,11 +20,11 @@ public struct TimetablePlacement {
     public let laneCount: Int
 }
 public extension TimetableClock {
-    static func placements(_ entries: [TimetableEntry]) -> [TimetablePlacement] {
+    static func placements(_ entries: [TimetableEntry], byPeriod:Bool = false) -> [TimetablePlacement] {
         (1...7).flatMap { day -> [TimetablePlacement] in
             let sorted = entries.enumerated().compactMap { index, entry -> (Int,Int,Int)? in
                 guard !entry.Online, entry.Weekday == day, let range=minutes(period:entry.Period,span:max(1,entry.Span)) else {return nil}
-                return (index,range.start,range.end)
+                return byPeriod ? (index,entry.Period,min(12,entry.Period+max(1,entry.Span))) : (index,range.start,range.end)
             }.sorted { $0.1 == $1.1 ? $0.0 < $1.0 : $0.1 < $1.1 }
             var ends: [Int] = []
             var slots: [(Int,Int,Int,Int)] = []

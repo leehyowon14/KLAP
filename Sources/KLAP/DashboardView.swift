@@ -7,6 +7,7 @@ struct DashboardView: View {
     @ViewState<String> private var studentID = ""
     @ViewState<String> private var password = ""
     @ViewState<[String]> private var proposedIDs = []
+    @ViewState<Bool> private var showPeriodInfo = false
     @ViewState<Bool> private var showChanges = false
     @ViewState<Bool> private var confirmStudy = false
     var body: some View {
@@ -33,7 +34,13 @@ struct DashboardView: View {
                     }
                     else {
                     if !model.conflicts.isEmpty { changesLink }
-                    HStack { Text("주간 시간표").font(.system(size:16,weight:.bold));Spacer();if model.selectedCourse != nil { Button("전체 과목") { model.selectedCourse = nil }.buttonStyle(.plain).font(.callout).foregroundStyle(.tint) } }
+                    HStack {
+                        Text("주간 시간표").font(.system(size:16,weight:.bold))
+                        Spacer()
+                        Button { showPeriodInfo.toggle() } label: { Image(systemName:"info.circle").font(.system(size:16)) }
+                            .buttonStyle(.plain).frame(width:28,height:28).accessibilityLabel("교시별 시간 안내")
+                            .popover(isPresented:$showPeriodInfo) { PeriodInfoView(entries:model.snapshot.timetable?.Entries ?? []) }
+                    }
                     WeeklyTimetable(entries:model.snapshot.timetable?.Entries ?? []) { model.selectedCourse = $0 }
                     Rectangle().fill(Theme.line).frame(height:1).padding(.vertical,8)
                     if model.showLogin { login }
