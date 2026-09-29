@@ -71,7 +71,7 @@ import KLAPCore
             }
         }
         network.start(queue: DispatchQueue(label: "KLAP.network"))
-        Task { if !onboarding && !loggedOut { await refresh(); if autoSync { await sync() } } }
+        Task { await setup.requestAccess(); if !onboarding && !loggedOut { await refresh(); if autoSync && setup.ready { await sync() } } }
     }
     func scheduledRefresh() {
         guard !busy, !onboarding, !loggedOut else { return }

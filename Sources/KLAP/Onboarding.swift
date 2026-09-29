@@ -21,16 +21,18 @@ import KLAPCore
     private let store = EKEventStore()
     var ready: Bool { calendarAllowed && reminderAllowed && !loading }
     func requestAccess() async {
+        guard !loading else { return }
         loading = true; error = nil
         defer { loading = false }
+        var failures:[String]=[]
         do {
-            if #available(macOS 14.0, *) {
-                calendarAllowed = try await store.requestFullAccessToEvents()
-                reminderAllowed = try await store.requestFullAccessToReminders()
-            } else {
-                calendarAllowed = try await store.requestAccess(to: .event)
-                reminderAllowed = try await store.requestAccess(to: .reminder)
-            }
+            if #available(macOS 14.0, *) { calendarAllowed = try await store.requestFullAccessToEvents() }
+            else { calendarAllowed = try await store.requestAccess(to:.event) }
+        } catch { calendarAllowed=false;failures.append("캘린더: " + error.localizedDescription) }
+        do {
+            if #available(macOS 14.0, *) { reminderAllowed = try await store.requestFullAccessToReminders() }
+            else { reminderAllowed = try await store.requestAccess(to:.reminder) }
+        } catch { reminderAllowed=false;failures.append("미리 알림: " + error.localizedDescription) }
             let allEvents = calendarAllowed ? store.calendars(for:.event) : []
             let events = allEvents.filter(\.allowsContentModifications).map(\.title)
             let allLists = reminderAllowed ? store.calendars(for:.reminder) : []
@@ -46,7 +48,7 @@ import KLAPCore
             if !timetable.isEmpty && !calendars.contains(timetable) { timetable = "" }
             if !academic.isEmpty && !calendars.contains(academic) { academic = "" }
             if !reminder.isEmpty && !reminders.contains(reminder) { reminder = "" }
-        } catch { self.error = error.localizedDescription }
+        if !failures.isEmpty { error=failures.joined(separator:"\n") }
     }
     func openPrivacySettings() {
         NSWorkspace.shared.open(URL(string:"x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars")!)
