@@ -4,6 +4,7 @@ import KLAPCore
 struct WeeklyTimetable: View {
     let entries: [TimetableEntry]
     let select: (String) -> Void
+    private var courseTones:[String:Double] { CourseTones.assign(entries.map(\.SubjectID)) }
     private var timed: [TimetableEntry] { entries.filter { !$0.Online && (1...7).contains($0.Weekday) && TimetableClock.minutes(period: $0.Period, span: max(1,$0.Span)) != nil } }
     private var days: Int { max(5, timed.map(\.Weekday).max() ?? 5) }
     private var start: Int { min(540, timed.compactMap { TimetableClock.minutes(period: $0.Period, span: max(1,$0.Span))?.start }.min() ?? 540) }
@@ -35,7 +36,7 @@ struct WeeklyTimetable: View {
                                     Text(entry.SubjectName).font(.system(size:10,weight:.bold)).lineLimit(2)
                                     Text(entry.Room).font(.system(size:9)).lineLimit(1).opacity(0.8)
                                 }.padding(5).frame(width:max(1,laneWidth-5),height:max(18,CGFloat(range.end-range.start)*scale-4),alignment:.topLeading)
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle((courseTones[entry.SubjectID] ?? 50) < 35 ? Color(nsColor:Theme.tone(95)) : .white)
                                     .background(color(entry.SubjectID),in:RoundedRectangle(cornerRadius:8,style:.continuous))
                                     .clipped()
                             }.buttonStyle(.plain).help("\(entry.SubjectName) · \(entry.Room) · \(entry.Period)교시")
@@ -52,7 +53,6 @@ struct WeeklyTimetable: View {
             .background(Theme.surface,in:RoundedRectangle(cornerRadius:16,style:.continuous))
     }
     private func color(_ id: String) -> Color {
-        let colors = Theme.tones
-        return colors[id.utf8.reduce(0) { ($0 + Int($1)) % colors.count }]
+        Color(nsColor:Theme.tone(courseTones[id] ?? 50))
     }
 }

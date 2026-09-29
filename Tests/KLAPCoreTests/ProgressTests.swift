@@ -72,3 +72,11 @@ expect(MenuPanelPlacement.validAnchor(CGRect(x:1200,y:875,width:24,height:25),sc
 expect(MenuPanelPlacement.validAnchor(CGRect(x:-1200,y:875,width:24,height:25),screen:CGRect(x:-1440,y:0,width:1440,height:900)),"Negative screen anchor accepted")
 expect(!MenuPanelPlacement.validAnchor(CGRect(x:1600,y:875,width:24,height:25),screen:fullScreen),"Wrong screen rejected")
 print("5 startup anchor checks passed")
+
+let tones=CourseTones.assign(["a","b","c","d","e","a"])
+expect(tones.count == 5 && Set(tones.values).count == 5,"Distinct tones for five courses")
+expect(tones == CourseTones.assign(["e","d","c","b","a"]),"Stable order and repeated meetings")
+expect(CourseTones.assign([]).isEmpty,"Empty course palette")
+expect(CourseTones.assign(["one"])["one"] == 50,"Single course seed")
+expect(Set(CourseTones.assign((0..<20).map(String.init)).values).count == 20,"No modulo palette collisions")
+print("5 course tone checks passed")

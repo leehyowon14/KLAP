@@ -5,7 +5,7 @@ import SwiftUI
 /// Intermediate stops keep the seed's hue by mixing with white or black.
 enum Theme {
     static let stops = [0,5,10,20,30,40,50,60,70,80,90,95,100]
-    static func tone(_ level:Int) -> NSColor {
+    static func tone(_ level:Double) -> NSColor {
         let t=Double(min(100,max(0,level)))
         let seed:[Double]=[138.0/255,22.0/255,1.0/255]
         let rgb=seed.map { component in
@@ -15,7 +15,7 @@ enum Theme {
     }
     static func pair(_ light:Int,_ dark:Int) -> Color {
         Color(nsColor:NSColor(name:nil) { appearance in
-            tone(appearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua ? dark : light)
+            tone(Double(appearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua ? dark : light))
         })
     }
     // Neutral application surfaces are independent of the course palette.
@@ -39,5 +39,4 @@ enum Theme {
             ? NSColor(srgbRed:0.28,green:0.19,blue:0.08,alpha:1)
             : NSColor(srgbRed:0.89,green:0.85,blue:0.78,alpha:1)
     })
-    static let tones:[Color] = [40,50,60,70].map { pair($0,$0) }
 }
