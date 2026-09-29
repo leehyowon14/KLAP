@@ -15,6 +15,8 @@ import (
 type request struct {
 	Concurrency       int
 	Adaptive          bool
+	Transcribe        bool
+	Locale            string
 	Year              string
 	ExpectedAccount   string
 	Kind              string

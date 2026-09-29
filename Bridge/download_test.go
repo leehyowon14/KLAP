@@ -60,3 +60,26 @@ func TestDownloadConcurrency(t *testing.T) {
 		t.Fatal("adaptive options lost")
 	}
 }
+
+type fakePipeline struct{}
+
+func (fakePipeline) RunLectureDownloadPipeline(ctx context.Context, o app.LectureDownloadPipelineOptions) (app.LectureDownloadPipelineResult, error) {
+	if !o.Transcribe || o.TranscriptLocale != "ko-KR" || o.TranscriptConcurrency != 1 {
+		panic("pipeline options")
+	}
+	o.OnEvent(app.LecturePipelineEvent{Download: &app.LectureDownloadProgress{Lecture: app.LectureRow{ID: "a"}, Stage: app.LectureStageDone}})
+	o.OnEvent(app.LecturePipelineEvent{Transcript: &app.LectureTranscriptProgress{Lecture: app.LectureRow{ID: "a"}, Stage: app.LectureStageTranscriptError, Err: errors.New("speech unavailable")}})
+	return app.LectureDownloadPipelineResult{Download: app.LectureDownloadAllResult{Items: []app.LectureDownloadItem{{Lecture: app.LectureRow{ID: "a"}, Path: "/tmp/a.mp4"}}}}, nil
+}
+func TestTranscriptFailurePreservesDownload(t *testing.T) {
+	progress := false
+	transcript := false
+	p := pipelineDownloader{service: fakePipeline{}, locale: "ko-KR", send: func(kind string, data any) {
+		v := data.(map[string]any)
+		transcript = kind == "transcript-progress" && v["Error"] == "speech unavailable"
+	}}
+	result, err := p.DownloadAllLectures(context.Background(), app.LectureDownloadAllOptions{OnProgress: func(app.LectureDownloadProgress) { progress = true }})
+	if err != nil || !progress || !transcript || len(result.Items) != 1 || result.Items[0].Path != "/tmp/a.mp4" {
+		t.Fatal("pipeline lost completed download or transcript failure")
+	}
+}

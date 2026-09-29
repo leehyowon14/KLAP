@@ -89,6 +89,9 @@ func init() {
 		if r.ExpectedAccount == "" || r.ExpectedAccount != account {
 			return fmt.Errorf("다운로드를 선택한 계정과 현재 계정이 다릅니다")
 		}
+		if r.Transcribe {
+			return runDownloads(ctx, pipelineDownloader{service: s, locale: r.Locale, send: emit}, r, user, emit)
+		}
 		return runDownloads(ctx, s, r, user, emit)
 	}
 }
@@ -126,4 +129,30 @@ func init() {
 		emit("download-inventory", rows)
 		return nil
 	}
+}
+
+type lecturePipeliner interface {
+	RunLectureDownloadPipeline(context.Context, app.LectureDownloadPipelineOptions) (app.LectureDownloadPipelineResult, error)
+}
+type pipelineDownloader struct {
+	send    func(string, any)
+	service lecturePipeliner
+	locale  string
+}
+
+func (p pipelineDownloader) DownloadAllLectures(ctx context.Context, opts app.LectureDownloadAllOptions) (app.LectureDownloadAllResult, error) {
+	result, err := p.service.RunLectureDownloadPipeline(ctx, app.LectureDownloadPipelineOptions{Download: opts, Transcribe: true, TranscriptLocale: p.locale, TranscriptConcurrency: 1, OnEvent: func(e app.LecturePipelineEvent) {
+		if e.Download != nil && opts.OnProgress != nil {
+			opts.OnProgress(*e.Download)
+		}
+		if e.Transcript != nil {
+			v := e.Transcript
+			message := ""
+			if v.Err != nil {
+				message = v.Err.Error()
+			}
+			p.send("transcript-progress", map[string]any{"ID": v.Lecture.ID, "Stage": v.Stage, "Path": v.OutputPath, "Error": message})
+		}
+	}})
+	return result.Download, err
 }
