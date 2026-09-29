@@ -1,0 +1,127 @@
+--- /dev/null
++++ b/internal/app/download_inventory.go
+@@ -0,0 +1,55 @@
++package app
++
++import (
++	"context"
++	"os"
++	"path/filepath"
++	"strings"
++)
++
++type DownloadInventoryItem struct {
++	ID, Path string
++	Bytes    int64
++}
++
++func (s *Service) DownloadInventory(ctx context.Context, opts LectureDownloadAllOptions) ([]DownloadInventoryItem, error) {
++	rows, err := s.LectureList(ctx, LectureListOptions{User: opts.User})
++	if err != nil {
++		return nil, err
++	}
++	groups := map[string][]LectureRow{}
++	for _, row := range rows {
++		groups[row.CourseName] = append(groups[row.CourseName], row)
++	}
++	found := []DownloadInventoryItem{}
++	for _, group := range groups {
++		orders := lectureRowWeekOrders(group)
++		for _, row := range group {
++			path := s.downloader.VideoPath(opts.Dir, row.CourseName, lectureFileName(row.Lecture), "", orders[row.ID])
++			if existing, size := existingDownloadFile(path); existing != "" {
++				found = append(found, DownloadInventoryItem{ID: row.ID, Path: existing, Bytes: size})
++			}
++		}
++	}
++	return found, nil
++}
++
++func existingDownloadFile(path string) (string, int64) {
++	for _, candidate := range []string{path, filepath.Join(filepath.Dir(filepath.Dir(path)), "video", filepath.Base(path))} {
++		files, _ := os.ReadDir(filepath.Dir(candidate))
++		for _, file := range files {
++			ext := strings.ToLower(filepath.Ext(file.Name()))
++			if ext != ".mp4" && ext != ".mov" && ext != ".m4v" && ext != ".webm" && ext != ".mkv" {
++				continue
++			}
++			if strings.TrimSuffix(file.Name(), filepath.Ext(file.Name())) != strings.TrimSuffix(filepath.Base(candidate), filepath.Ext(candidate)) {
++				continue
++			}
++			info, e := file.Info()
++			if e == nil && info.Mode().IsRegular() && info.Size() > 0 {
++				return filepath.Join(filepath.Dir(candidate), file.Name()), info.Size()
++			}
++		}
++	}
++	return "", 0
++}
+--- /dev/null
++++ b/internal/app/download_inventory_test.go
+@@ -0,0 +1,26 @@
++package app
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++)
++
++func TestExistingDownloadFile(t *testing.T) {
++	for _, tc := range []struct {
++		name, file string
++		size       int
++		want       bool
++	}{{"complete", "Video/1. 강의.mp4", 1, true}, {"legacy", "video/1. 강의.mp4", 1, true}, {"extension", "Video/1. 강의.MOV", 1, true}, {"partial", "Video/1. 강의.mp4.part", 1, false}, {"empty", "Video/1. 강의.mp4", 0, false}, {"different", "Video/2. 강의.mp4", 1, false}} {
++		t.Run(tc.name, func(t *testing.T) {
++			root := t.TempDir()
++			file := filepath.Join(root, tc.file)
++			os.MkdirAll(filepath.Dir(file), 0700)
++			os.WriteFile(file, make([]byte, tc.size), 0600)
++			got, size := existingDownloadFile(filepath.Join(root, "Video", "1. 강의.mp4"))
++			if (got != "") != tc.want || tc.want && size != int64(tc.size) {
++				t.Fatalf("got %s %d", got, size)
++			}
++		})
++	}
++}
+--- a/internal/download/naming.go
++++ b/internal/download/naming.go
+@@ -9,7 +9,7 @@
+ )
+ 
+ func (*Client) VideoPath(root string, courseName string, lecture app.LectureFileName, mediaURL string, weekOrder int) string {
+-	return filepath.Join(root, lectureCourseDirName(courseName), "video", lectureFilename(lecture, mediaURL, weekOrder))
++	return filepath.Join(root, lectureCourseDirName(courseName), "Video", lectureFilename(lecture, mediaURL, weekOrder))
+ }
+ 
+ func lectureCourseDirName(courseName string) string {
+--- a/internal/download/naming_test.go
++++ b/internal/download/naming_test.go
+@@ -13,7 +13,7 @@
+ 		Week:        1,
+ 		Title:       "Git? GitHub* 시작",
+ 	}, "https://media.example.com/video.mp4?token=1", 1)
+-	want := filepath.Join("root", "오픈소스_실습", "video", "1-1. Git_ GitHub_ 시작.mp4")
++	want := filepath.Join("root", "오픈소스_실습", "Video", "1-1. Git_ GitHub_ 시작.mp4")
+ 	if got != want {
+ 		t.Fatalf("lectureVideoPath() = %q, want %q", got, want)
+ 	}
+@@ -25,7 +25,7 @@
+ 		ModuleTitle: "보강",
+ 		Title:       "기말/정리",
+ 	}, "https://media.example.com/final.mov", 2)
+-	want := filepath.Join("root", "컴퓨터그래픽스", "video", "14-2. 기말_정리.mov")
++	want := filepath.Join("root", "컴퓨터그래픽스", "Video", "14-2. 기말_정리.mov")
+ 	if got != want {
+ 		t.Fatalf("lectureVideoPath() = %q, want %q", got, want)
+ 	}
+@@ -33,7 +33,7 @@
+ 
+ func TestFilenameFallbackAndSanitization(t *testing.T) {
+ 	got := NewClient(nil).VideoPath("root", "../", app.LectureFileName{}, "invalid", 0)
+-	if got != filepath.Join("root", "_", "video", "lecture.mp4") {
++	if got != filepath.Join("root", "_", "Video", "lecture.mp4") {
+ 		t.Fatalf("fallback=%q", got)
+ 	}
+ 	if got := sanitizePathComponent(" . "); got != "" {
