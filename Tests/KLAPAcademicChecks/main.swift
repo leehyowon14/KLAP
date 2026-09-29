@@ -1,0 +1,15 @@
+import Foundation
+func date(_ year:Int,_ month:Int,_ day:Int)->Date {AcademicCalendar.calendar.date(from:DateComponents(year:year,month:month,day:day))!}
+let leap=AcademicCalendar.days(date(2024,2,12))
+precondition(leap.compactMap{$0}.count==29 && leap.count%7==0)
+precondition(AcademicCalendar.days(date(2025,2,1)).compactMap{$0}.count==28)
+let month=AcademicCalendar.days(date(2026,9,1))
+precondition(month.prefix(2).allSatisfy{$0==nil})
+let event=AcademicEntry(Month:"9월",Date:"9.28 ~ 10.2",Title:"기간 일정",Note:"",Start:"2026-09-28",End:"2026-10-02")
+precondition(event.includes(date(2026,9,28)) && event.includes(date(2026,10,2)))
+precondition(!event.includes(date(2026,9,27)) && !event.includes(date(2026,10,3)))
+let unknown=AcademicEntry(Month:"9월",Date:"추후",Title:"미정",Note:"",Start:"",End:"")
+precondition(!unknown.includes(date(2026,9,1)))
+let decoded=try JSONDecoder().decode(AcademicResult.self,from:Data(#"{"Year":"2026","SourceURL":"","Events":null}"#.utf8))
+precondition(decoded.Events==nil)
+print("Calendar leap year, grid alignment, inclusive range, cross-month and undated checks passed")
