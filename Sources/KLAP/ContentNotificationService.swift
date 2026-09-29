@@ -12,15 +12,21 @@ import KLAPCore
     @Published private(set) var requestingPermission=false
     private let readAuthorization:() async -> UNAuthorizationStatus
     private let authorize:() async throws -> Bool
+    private let submitNotification:(UNNotificationRequest) async throws -> Void
+    private let removeDeliveredNotifications:([String]) -> Void
     private(set) var history:ContentNotificationHistory
     private let defaults:UserDefaults
     private let key="contentNotifications.v1"
     private let center=UNUserNotificationCenter.current()
     init(defaults:UserDefaults = .standard,
          readAuthorization:(() async -> UNAuthorizationStatus)?=nil,
-         authorize:(() async throws -> Bool)?=nil) {
+         authorize:(() async throws -> Bool)?=nil,
+         submitNotification:((UNNotificationRequest) async throws -> Void)?=nil,
+         removeDeliveredNotifications:(([String]) -> Void)?=nil) {
         self.readAuthorization=readAuthorization ?? {await UNUserNotificationCenter.current().notificationSettings().authorizationStatus}
         self.authorize=authorize ?? {try await UNUserNotificationCenter.current().requestAuthorization(options:[.alert,.sound])}
+        self.submitNotification=submitNotification ?? {try await UNUserNotificationCenter.current().add($0)}
+        self.removeDeliveredNotifications=removeDeliveredNotifications ?? {UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers:$0)}
         self.defaults=defaults
         history=defaults.data(forKey:key).flatMap{try? JSONDecoder().decode(ContentNotificationHistory.self,from:$0)} ?? ContentNotificationHistory()
     }
@@ -92,10 +98,11 @@ import KLAPCore
             let enabled=preferences()
             guard alert.kind == .notice ? enabled.notices : enabled.lectures else {history.markDelivered(alert.id);persist();continue}
             do {
-                try await center.add(UNNotificationRequest(identifier:"KLAP.content."+alert.id,content:Self.content(alert),trigger:nil))
+                let identifier="KLAP.content."+alert.id
+                try await submitNotification(UNNotificationRequest(identifier:identifier,content:Self.content(alert),trigger:nil))
                 let enabled=preferences()
                 if !(alert.kind == .notice ? enabled.notices : enabled.lectures) {
-                    center.removeDeliveredNotifications(withIdentifiers:["KLAP.content."+alert.id])
+                    removeDeliveredNotifications([identifier])
                 }
                 history.markDelivered(alert.id);persist();deliveryError=nil
             } catch {
