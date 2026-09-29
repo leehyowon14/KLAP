@@ -159,6 +159,16 @@ func (p pipelineDownloader) DownloadAllLectures(ctx context.Context, opts app.Le
 	if err != nil {
 		return result, err
 	}
+	queue := []string{}
+	for _, item := range result.Items {
+		if app.LectureDownloadItemNeedsTranscript(item) {
+			queue = append(queue, item.Lecture.ID)
+		}
+	}
+	if ctx.Err() != nil {
+		return result, ctx.Err()
+	}
+	p.send("transcript-queue", queue)
 	for _, item := range result.Items {
 		if ctx.Err() != nil {
 			return result, ctx.Err()
@@ -171,7 +181,7 @@ func (p pipelineDownloader) DownloadAllLectures(ctx context.Context, opts app.Le
 			if v.Err != nil {
 				message = v.Err.Error()
 			}
-			p.send("transcript-progress", map[string]any{"ID": v.Lecture.ID, "Stage": v.Stage, "Path": v.OutputPath, "Error": message})
+			p.send("transcript-progress", map[string]any{"ID": v.Lecture.ID, "Stage": v.Stage, "Path": v.OutputPath, "Error": message, "Progress": v.Progress})
 		}})
 	}
 	return result, ctx.Err()

@@ -42,6 +42,22 @@ struct LectureDownloadRow {
 struct LectureDownloadState {
     var rows:[String:LectureDownloadRow]=[:]
     var transcripts:[String:LectureTranscriptProgressData]=[:]
+    var transcriptQueue:[String]=[]
+    var transcribing:Bool {!transcriptQueue.isEmpty}
+    var displayTotal:Int {transcribing ? transcriptQueue.count : expected.count}
+    var displayCurrent:Int {
+        guard transcribing else{return completed}
+        let terminal=transcriptQueue.filter{["transcribed","transcript-error"].contains(transcripts[$0]?.Stage ?? "")}.count
+        return min(displayTotal,terminal + (transcriptQueue.contains{transcripts[$0]?.Stage == "transcribe"} ? 1 : 0))
+    }
+    var displayFraction:Double {
+        guard transcribing else{return fraction}
+        return transcriptQueue.reduce(0.0) {sum,id in
+            guard let value=transcripts[id] else{return sum}
+            return sum + (["transcribed","transcript-error"].contains(value.Stage) ? 1 : min(1,max(0,value.Progress ?? 0)))
+        } / Double(transcriptQueue.count)
+    }
+    mutating func beginTranscription(_ ids:[String]) {transcriptQueue=Array(NSOrderedSet(array:ids.filter{rows[$0] != nil})) as? [String] ?? []}
     var running=false
     var cancelling=false
     var failure:String?
@@ -59,7 +75,7 @@ struct LectureDownloadState {
     mutating func begin(_ ids:[String]) {
         expected=Array(NSOrderedSet(array:ids)) as? [String] ?? []
         rows=Dictionary(uniqueKeysWithValues:expected.map{($0,LectureDownloadRow())})
-        running=true;cancelling=false;failure=nil;transcripts=[:]
+        running=true;cancelling=false;failure=nil;transcripts=[:];transcriptQueue=[]
     }
     mutating func apply(_ progress:LectureDownloadProgressData) {
         guard rows[progress.ID] != nil else{return}
@@ -104,4 +120,5 @@ struct LectureTranscriptProgressData:Decodable {
     let Stage:String
     let Path:String
     let Error:String
+    var Progress:Double?=nil
 }

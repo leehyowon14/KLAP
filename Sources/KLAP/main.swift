@@ -25,8 +25,8 @@ import KLAPCore
         updateIcon(nil)
         panel = MenuPanel(model:model)
         Publishers.CombineLatest(model.$progress,model.$downloadState).sink { [weak self] progress,download in
-            self?.updateIcon(progress ?? (download.running ? StudyProgress(percent:download.fraction*100,current:download.completed,total:download.expected.count) : nil))
-            if download.running {self?.item.button?.toolTip="KLAP · 다운로드 \(download.completed)/\(download.expected.count) · \(download.speedLabel)"}
+            self?.updateIcon(progress ?? (download.running ? StudyProgress(percent:download.displayFraction*100,current:download.displayCurrent,total:download.displayTotal) : nil))
+            if download.running {self?.item.button?.toolTip="KLAP · \(download.transcribing ? "전사" : "다운로드") \(download.displayCurrent)/\(download.displayTotal)"}
         }.store(in:&subscriptions)
         UNUserNotificationCenter.current().delegate = self
         model.reveal = { [weak self] in self?.show() }

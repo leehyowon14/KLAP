@@ -89,13 +89,16 @@ func (f *fakePipeline) TranscribeDownloadedLectures(ctx context.Context, items [
 	if f.cancel != nil {
 		f.cancel()
 	}
-	o.OnProgress(app.LectureTranscriptProgress{Lecture: items[0].Lecture, Stage: app.LectureStageTranscriptError, Err: errors.New("speech unavailable")})
+	o.OnProgress(app.LectureTranscriptProgress{Lecture: items[0].Lecture, Stage: app.LectureStageTranscriptError, Progress: 0.4, Err: errors.New("speech unavailable")})
 	return app.LectureTranscriptResult{}
 }
 func TestTranscriptFailurePreservesDownload(t *testing.T) {
 	progress := false
 	transcript := false
 	p := pipelineDownloader{service: &fakePipeline{}, locale: "en-US", send: func(kind string, data any) {
+		if kind != "transcript-progress" {
+			return
+		}
 		v := data.(map[string]any)
 		transcript = kind == "transcript-progress" && v["Error"] == "speech unavailable"
 	}}
@@ -137,5 +140,22 @@ func TestDownloadThenSequentialTranscription(t *testing.T) {
 	_, err = p.DownloadAllLectures(ctx, app.LectureDownloadAllOptions{})
 	if !errors.Is(err, context.Canceled) || strings.Join(f.calls, ",") != "download-start,download-end,transcribe-a" {
 		t.Fatalf("cancel must stop next transcription: %v", f.calls)
+	}
+}
+
+func TestTranscriptQueueAndProgressEvents(t *testing.T) {
+	var ids []string
+	var progress float64
+	p := pipelineDownloader{service: &fakePipeline{}, locale: "en-US", send: func(kind string, value any) {
+		if kind == "transcript-queue" {
+			ids = value.([]string)
+		}
+		if kind == "transcript-progress" {
+			progress = value.(map[string]any)["Progress"].(float64)
+		}
+	}}
+	_, err := p.DownloadAllLectures(context.Background(), app.LectureDownloadAllOptions{})
+	if err != nil || strings.Join(ids, ",") != "a,b" || progress != 0.4 {
+		t.Fatalf("queue/progress lost: %v %v %v", ids, progress, err)
 	}
 }

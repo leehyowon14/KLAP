@@ -17,7 +17,7 @@ func emitTranscript(v app.LectureTranscriptProgress) {
 	if v.Err != nil {
 		message = v.Err.Error()
 	}
-	emit("transcript-progress", map[string]any{"ID": v.Lecture.ID, "Stage": v.Stage, "Path": v.OutputPath, "Error": message})
+	emit("transcript-progress", map[string]any{"ID": v.Lecture.ID, "Stage": v.Stage, "Path": v.OutputPath, "Error": message, "Progress": v.Progress})
 }
 func init() {
 	handlers["lecture-transcribe"] = func(ctx context.Context, s *app.Service, r request) error {
@@ -41,6 +41,7 @@ func init() {
 		}
 		for _, file := range files {
 			if file.ID == r.ID {
+				emit("transcript-queue", []string{r.ID})
 				s.TranscribeDownloadedLectures(ctx, []app.LectureDownloadItem{{Lecture: app.LectureRow{ID: r.ID}, Path: file.Path}}, app.LectureTranscriptOptions{Locale: r.Locale, OnProgress: emitTranscript})
 				if ctx.Err() != nil {
 					return ctx.Err()
