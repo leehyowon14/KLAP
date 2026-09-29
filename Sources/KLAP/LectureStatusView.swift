@@ -22,7 +22,7 @@ struct LectureStatusView: View {
                 Spacer(minLength:8)
                 Group {
                     switch state {
-                    case .complete: Image(systemName:"circle.fill").foregroundStyle(.blue).accessibilityLabel("기간 내 수강 완료")
+                    case .complete: Image(systemName:"circle").foregroundStyle(.blue).accessibilityLabel("기간 내 수강 완료")
                     case .missed: Image(systemName:"xmark").foregroundStyle(.red).accessibilityLabel("기간 종료, 미수강")
                     case .late:
                         (Text("L").foregroundColor(.orange) + Text(" / ").foregroundColor(.gray) + Text("X").foregroundColor(.red)).accessibilityLabel("기간 내 시작, 마감 후 완료")
