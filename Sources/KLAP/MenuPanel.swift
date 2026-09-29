@@ -32,8 +32,14 @@ private final class KeyablePanel: NSPanel {
     }
 
     func show(relativeTo button: NSStatusBarButton) {
-        guard let statusWindow=button.window, let screen=statusWindow.screen ?? NSScreen.main else {return}
-        let anchor=statusWindow.convertToScreen(button.convert(button.bounds,to:nil))
+        guard let screen=button.window?.screen ?? NSScreen.main else {return}
+        // Keep the controls reachable when macOS temporarily has no status-item window.
+        let anchor: CGRect
+        if let statusWindow=button.window {
+            anchor=statusWindow.convertToScreen(button.convert(button.bounds,to:nil))
+        } else {
+            anchor=CGRect(x:screen.visibleFrame.maxX-32,y:screen.visibleFrame.maxY,width:24,height:24)
+        }
         let frame=MenuPanelPlacement.frame(anchor:anchor,visibleScreen:screen.visibleFrame,size:CGSize(width:540,height:700))
         window.setFrame(frame,display:true)
         NSApp.activate(ignoringOtherApps:true)

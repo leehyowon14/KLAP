@@ -1,6 +1,6 @@
 # KLAP macOS
 
-메뉴바에 상주하는 KLAS 학습 관리 앱의 개발 버전입니다. Dock 아이콘 없이 실행되며, 팝오버를 닫아도 작업은 계속됩니다.
+메뉴바에 상주하는 KLAS 학습 관리 앱의 개발 버전입니다. 앱을 열면 관리 화면이 표시되고, 실행 중 다시 열어도 화면에 접근할 수 있습니다. 메뉴바 아이콘 우클릭으로 바로 종료할 수 있습니다. Dock 아이콘 없이 실행되며, 팝오버를 닫아도 작업은 계속됩니다.
 
 ## 실행
 
@@ -42,11 +42,12 @@ open dist/KLAP.app
 swift run --build-system native KLAPCoreChecks
 bash scripts/build-core.sh
 bash scripts/build.sh
+bash scripts/check-launch.sh
 codesign --verify --deep --strict dist/KLAP.app
 plutil -lint dist/KLAP.app/Contents/Info.plist
 ```
 
-XCTest가 포함되지 않은 개발 환경에서도 실행되도록 Swift 검증은 실행 파일 방식으로 제공합니다. 진행률, 시간표 범위·겹침, 빈 응답, 대상 이름 충돌을 검증합니다. Go 수강 큐 테스트는 빈 선택·중복·실패·미완료 응답·취소 후 다음 작업 방지를 검증합니다.
+XCTest가 포함되지 않은 개발 환경에서도 실행되도록 Swift 검증은 실행 파일 방식으로 제공합니다. `check-launch.sh`는 계정 조회 없이 최적화 앱을 직접 실행하고 macOS 앱 열기로도 실행하여 메뉴바 생성, 아이콘, 패널 열기·닫기와 다시 열기를 검증합니다. 진행률, 시간표 범위·겹침, 빈 응답, 대상 이름 충돌을 검증합니다. Go 수강 큐 테스트는 빈 선택·중복·실패·미완료 응답·취소 후 다음 작업 방지를 검증합니다.
 
 ## 1.0 전 남은 검증
 
