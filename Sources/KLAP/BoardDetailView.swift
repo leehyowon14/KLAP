@@ -8,6 +8,7 @@ struct BoardDetailView: View {
     let title: String
     let onClose: () -> Void
     @ViewState<BoardDetail?> private var detail = nil
+    @ViewState<CGFloat> private var bodyHeight = 40
     @ViewState<String?> private var failure = nil
     @ViewState<Bool> private var loading = false
     @ViewState<String?> private var transferring = nil
@@ -26,7 +27,11 @@ struct BoardDetailView: View {
                     if let detail {
                         Text(boardMetadata(detail.Detail.Author,detail.Detail.Registered)).font(.caption).foregroundStyle(.secondary)
                         Divider()
+                        if let html=detail.Detail.ContentHTML, !html.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty {
+                            BoardHTMLView(html:html,height:$bodyHeight).frame(height:bodyHeight)
+                        } else {
                         Text(LinkedBody.attributed(detail.Detail.ContentText.isEmpty ? "본문이 없습니다." : detail.Detail.ContentText)).lineSpacing(5).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
+                        }
                         if let url=originalURL { Link("KLAS에서 원문 보기 ↗",destination:url).font(.caption).buttonStyle(.plain) }
                         Divider()
                         HStack { Label("첨부파일",systemImage:"paperclip").font(.headline); Text("\(detail.Files?.count ?? 0)").foregroundStyle(.secondary) }

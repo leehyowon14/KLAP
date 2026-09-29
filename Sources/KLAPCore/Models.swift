@@ -75,6 +75,7 @@ public struct NoticeDetailResult: Decodable {
     public let Detail: NoticeContent
 }
 public struct NoticeContent: Decodable {
+    public let ContentHTML: String?
     public let Title: String
     public let ContentText: String
     public let Author: String?
