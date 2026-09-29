@@ -27,8 +27,13 @@ struct DashboardView: View {
                     if model.onboarding { OnboardingView(model:model,setup:model.setup) }
                     else if model.showSettings { settings }
                     else if showChanges { changesPage }
+                    else if model.showSyllabus {
+                        pageHeading("강의계획서") { model.showSyllabus = false }
+                        SyllabusView(model:model)
+                    }
                     else if model.selectedCourse != nil {
                         pageHeading(model.selectedCourse ?? "과목") { model.selectedCourse=nil }
+                        CourseInformationView(model:model)
                         if model.studying { studyProgress }
                         courseContent
                     }
@@ -60,7 +65,7 @@ struct DashboardView: View {
                     } else { courseContent }
                     }
                 }.frame(maxWidth:.infinity,alignment:.leading).padding(.bottom,4)
-            }.id(model.onboarding ? "onboarding" : model.showSettings ? "settings" : showChanges ? "changes" : model.showLogin ? "login" : model.selectedCourse ?? "home").scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
+            }.id(model.onboarding ? "onboarding" : model.showSettings ? "settings" : showChanges ? "changes" : model.showSyllabus ? "syllabus" : model.showLogin ? "login" : model.selectedCourse ?? "home").scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
             Rectangle().fill(Theme.line).frame(height:1)
             HStack(spacing:16) {
                 VStack(alignment:.leading,spacing:2) {
