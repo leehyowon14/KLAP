@@ -40,8 +40,11 @@ import AppKit
         alert.alertStyle = .warning
         alert.addButton(withTitle:"응용 프로그램으로 옮기기")
         alert.addButton(withTitle:"계속 사용")
+        alert.addButton(withTitle:"닫기").keyEquivalent="\u{1b}"
         NSApp.activate(ignoringOtherApps:true)
-        guard alert.runModal() == .alertFirstButtonReturn else {
+        let response=alert.runModal()
+        if response == .alertThirdButtonReturn {NSApp.terminate(nil);return}
+        guard response == .alertFirstButtonReturn else {
             UserDefaults.standard.set(true,forKey:"installationMoveNoticeShown")
             continueLaunch();return
         }
