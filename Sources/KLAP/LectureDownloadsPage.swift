@@ -65,14 +65,17 @@ struct LectureDownloadsPage:View {
         let downloaded=model.downloadExisting.contains(item.id) || state?.finished == true
         let path=state?.finished == true ? state?.path : model.downloadPaths[item.id]
         return VStack(alignment:.leading,spacing:8) {
-            HStack(spacing:10) {
-                if downloaded || model.downloadState.running {
-                    Text(item.row.Lecture.Title).font(.callout.weight(.medium)).fixedSize(horizontal:false,vertical:true)
-                } else {
-                    Toggle(isOn:Binding(get:{model.downloadSelection.contains(item.id)},set:{selected in if selected {model.downloadSelection.insert(item.id)} else {model.downloadSelection.remove(item.id)}})) {
-                        Text(item.row.Lecture.Title).font(.callout.weight(.medium)).fixedSize(horizontal:false,vertical:true)
-                    }.toggleStyle(.checkbox).disabled(model.downloadScanning)
-                }
+            HStack(alignment:.center,spacing:10) {
+                Group {
+                    if downloaded {
+                        Image(systemName:"checkmark.circle").font(.system(size:16)).foregroundStyle(.secondary)
+                            .help("다운로드됨").accessibilityLabel("다운로드됨")
+                    } else {
+                        Toggle(item.row.Lecture.Title,isOn:Binding(get:{model.downloadSelection.contains(item.id)},set:{selected in if selected {model.downloadSelection.insert(item.id)} else {model.downloadSelection.remove(item.id)}}))
+                            .labelsHidden().toggleStyle(.checkbox).disabled(model.downloadScanning || model.downloadState.running)
+                    }
+                }.frame(width:20,height:28,alignment:.center)
+                Text(item.row.Lecture.Title).font(.callout.weight(.medium)).fixedSize(horizontal:false,vertical:true)
                 Spacer(minLength:8)
                 if downloaded {
                     if #available(macOS 26.0, *),!model.downloadTranscribed.contains(item.id),model.downloadState.transcripts[item.id]?.Stage != "transcribed" {
@@ -84,17 +87,17 @@ struct LectureDownloadsPage:View {
                         .buttonStyle(.plain).frame(width:28,height:28).help("Finder에서 보기").accessibilityLabel("Finder에서 보기")
                 }
             }
+            if (!downloaded && state != nil && state?.stage != "cancelled") || model.downloadState.transcripts[item.id].map({$0.Stage != "cancelled" && $0.Stage != "transcribed"}) == true {
             HStack(spacing:8) {
-                if downloaded {Label("다운로드됨",systemImage:"checkmark.circle")}
-                else if let state,state.stage != "cancelled" {Text(state.label).foregroundStyle(state.stage == "error" ? Color.red : Color.secondary).help(state.error ?? "")}
-                if let transcript=model.downloadState.transcripts[item.id],transcript.Stage != "cancelled" {
-                    if downloaded {Text("·")}
+                if !downloaded,let state,state.stage != "cancelled" {Text(state.label).foregroundStyle(state.stage == "error" ? Color.red : Color.secondary).help(state.error ?? "")}
+                if let transcript=model.downloadState.transcripts[item.id],transcript.Stage != "cancelled",transcript.Stage != "transcribed" {
                     Text(transcript.Stage == "cancelled" ? "전사 취소됨" : transcript.Stage == "transcribed" ? "전사 완료" : transcript.Stage == "transcript-error" ? "전사 실패" : "전사 중…")
                     if !transcript.Error.isEmpty {Image(systemName:"info.circle").help(transcript.Error).accessibilityLabel(transcript.Error)}
                 }
                 Spacer()
                 if state?.stage == "download",let fraction=state?.fraction {Text("\(Int(fraction*100))%").monospacedDigit()}
-            }.font(.caption).foregroundStyle(.secondary)
+            }.font(.caption).foregroundStyle(.secondary).padding(.leading,30)
+            }
             if state?.stage == "download" {
                 if let fraction=state?.fraction {ProgressView(value:fraction)} else {ProgressView().controlSize(.small)}
             }
