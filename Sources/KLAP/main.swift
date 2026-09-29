@@ -43,7 +43,7 @@ import KLAPCore
             NSMenu.popUpContextMenu(menu,with:NSApp.currentEvent!,for:button)
             return
         }
-        if panel.isPresented {panel.hide()} else {show()}
+        if panel.isVisible {panel.hide()} else {show()}
     }
     @objc private func openPanel() { show() }
     func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows flag:Bool)->Bool {
@@ -61,11 +61,28 @@ import KLAPCore
         panel.hide()
         _ = applicationShouldHandleReopen(NSApp,hasVisibleWindows:false)
         let reopened=panel.isVisible
+        model.boardPresentation=BoardPresentation(reference:BoardReference(kind:"notice",term:"test",subject:"test",board:"1",master:"1"),title:"테스트")
+        item.button?.performClick(nil)
+        let detailIconClosed = !panel.isVisible
+        show()
+        panel.hide() // The global outside-click monitor follows this same path.
+        let detailOutsideClosed = !panel.isVisible
+        show()
+        model.boardPresentation=nil
+        NSApp.keyWindow?.resignKey()
+        item.button?.performClick(nil)
+        let inactiveIconClosed = !panel.isVisible
+        var repeatedToggle=true
+        for _ in 0..<4 {
+            item.button?.performClick(nil);repeatedToggle = repeatedToggle && panel.isVisible
+            item.button?.performClick(nil);repeatedToggle = repeatedToggle && !panel.isVisible
+        }
         panel.hide()
         return ["initialized":true,"delegateRetained":NSApp.delegate === self,
                 "accessory":NSApp.activationPolicy() == .accessory,
                 "statusVisible":item.isVisible,"iconPresent":item.button?.image != nil,
                 "statusHasWidth":(item.button?.frame.width ?? 0) > 0,
+                "detailIconClosed":detailIconClosed,"detailOutsideClosed":detailOutsideClosed,"inactiveIconClosed":inactiveIconClosed,"repeatedToggle":repeatedToggle,
                 "panelAnchored":anchored,"firstClickOpened":firstClickOpened,"panelOpened":shown,"reopenOpened":reopened,"panelClosed":!panel.isVisible]
     }
     private func show() {

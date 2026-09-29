@@ -34,7 +34,6 @@ private struct MenuBackdrop: NSViewRepresentable {
         return abs(window.frame.minX-expected.minX) < 1 && abs(window.frame.maxY-expected.maxY) < 1
     }
     var isVisible: Bool { window.isVisible }
-    var isPresented: Bool { window.isVisible && window.isKeyWindow && NSApp.isActive }
 
     init(model: AppModel) {
         self.model=model
@@ -95,8 +94,14 @@ private struct MenuBackdrop: NSViewRepresentable {
                     self?.hide()
                 }
             }
-            keyMonitor=NSEvent.addLocalMonitorForEvents(matching:.keyDown) { [weak self] event in
-                if event.keyCode == 53, let self, self.window.attachedSheet == nil {
+            keyMonitor=NSEvent.addLocalMonitorForEvents(matching:[.keyDown,.leftMouseDown,.rightMouseDown]) { [weak self, weak button] event in
+                guard let self else { return event }
+                if event.type == .leftMouseDown || event.type == .rightMouseDown {
+                    // Global monitors exclude this app's other windows (e.g. a preview).
+                    if event.window !== self.window, event.window !== button?.window, event.window?.sheetParent !== self.window { self.hide() }
+                    return event
+                }
+                if event.keyCode == 53, event.window === self.window, self.window.attachedSheet == nil {
                     if self.model.boardPresentation == nil { self.hide();return nil }
                     // Let the detail view's cancel button handle Escape, including its disabled state.
                     return event
@@ -109,7 +114,7 @@ private struct MenuBackdrop: NSViewRepresentable {
     func hide() {
         pendingShow?.cancel()
         pendingShow=nil
-        guard window.attachedSheet == nil, model.boardPresentation == nil else {return}
+        guard window.attachedSheet == nil else {return}
         window.orderOut(nil)
         if let monitor=outsideMonitor {NSEvent.removeMonitor(monitor);outsideMonitor=nil}
         if let monitor=keyMonitor {NSEvent.removeMonitor(monitor);keyMonitor=nil}
