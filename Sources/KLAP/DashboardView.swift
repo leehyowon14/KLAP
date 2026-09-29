@@ -20,7 +20,7 @@ struct DashboardView: View {
                 Spacer()
                 if !model.onboarding {
                 if model.busy { ProgressView().controlSize(.small).frame(width:28,height:28) }
-                else { Button { if model.showDownloads { Task {await model.refresh()} } else if showAttendance || showAcademic {pageRefresh=UUID()} else {Task {await model.refresh()}} } label: { Image(systemName:"arrow.clockwise") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.busy || model.onboarding).help("새로고침").accessibilityLabel("새로고침") }
+                else { Button { if model.showDownloads { Task {await model.refresh();await model.scanDownloads()} } else if showAttendance || showAcademic {pageRefresh=UUID()} else {Task {await model.refresh()}} } label: { Image(systemName:"arrow.clockwise") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.busy || model.onboarding).help("새로고침").accessibilityLabel("새로고침") }
                 Button { model.showDownloads=false;showAcademic=true;showAttendance=false;showChanges=false;model.showSettings=false } label: { Image(systemName:"calendar") }.buttonStyle(.plain).frame(width:28,height:28).help("학사일정").accessibilityLabel("학사일정")
                 Button { model.showDownloads=false;showAcademic=false;showAttendance=false;showChanges=false;model.showSettings.toggle() } label: { Image(systemName:"gearshape") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.onboarding).help("설정").accessibilityLabel("설정")
                 }
