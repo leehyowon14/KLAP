@@ -36,7 +36,7 @@ struct WeeklyTimetable: View {
                                     Text(entry.SubjectName).font(.system(size:10,weight:.bold)).lineLimit(2)
                                     Text(entry.Room).font(.system(size:9)).lineLimit(1).opacity(0.8)
                                 }.padding(5).frame(width:max(1,laneWidth-5),height:max(18,CGFloat(range.end-range.start)*scale-4),alignment:.topLeading)
-                                    .foregroundStyle((courseTones[entry.SubjectID] ?? 50) < 35 ? Color(nsColor:Theme.tone(95)) : .white)
+                                    .foregroundStyle((courseTones[entry.SubjectID] ?? 50) < 30 ? Color(nsColor:Theme.tone(95)) : .white)
                                     .background(color(entry.SubjectID),in:RoundedRectangle(cornerRadius:8,style:.continuous))
                                     .clipped()
                             }.buttonStyle(.plain).help("\(entry.SubjectName) · \(entry.Room) · \(entry.Period)교시")

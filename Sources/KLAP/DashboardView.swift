@@ -12,12 +12,12 @@ struct DashboardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment:.center) {
-                Image(systemName:"graduationcap.fill").font(.title2).foregroundStyle(.tint)
+                Image(systemName:"graduationcap.fill").font(.title2).foregroundStyle(Color(nsColor:Theme.tone(50)))
                 VStack(alignment:.leading,spacing:2) { Text("KLAP").font(.title3.bold()); Text(model.snapshot.timetable?.Term.label ?? "나의 캠퍼스").font(.caption).foregroundStyle(.secondary) }
                 Spacer()
-                if model.busy { ProgressView().controlSize(.small) }
                 if !model.onboarding {
-                Button { Task { await model.refresh() } } label: { Image(systemName:"arrow.clockwise") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.busy || model.onboarding).help("새로고침").accessibilityLabel("새로고침")
+                if model.busy { ProgressView().controlSize(.small).frame(width:28,height:28) }
+                else { Button { Task { await model.refresh() } } label: { Image(systemName:"arrow.clockwise") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.busy || model.onboarding).help("새로고침").accessibilityLabel("새로고침") }
                 Button { showChanges=false;model.showSettings.toggle() } label: { Image(systemName:"gearshape") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.onboarding).help("설정").accessibilityLabel("설정")
                 }
             }
@@ -53,7 +53,7 @@ struct DashboardView: View {
                     } else { courseContent }
                     }
                 }.frame(maxWidth:.infinity,alignment:.leading).padding(.bottom,4)
-            }.scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
+            }.id(model.onboarding ? "onboarding" : model.showSettings ? "settings" : showChanges ? "changes" : model.selectedCourse ?? "home").scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
             Rectangle().fill(Theme.line).frame(height:1)
             HStack(spacing:16) {
                 VStack(alignment:.leading,spacing:2) {
