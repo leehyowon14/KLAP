@@ -12,3 +12,17 @@ let cdp=try decode(#"{"Report":{"TotalCount":"0","Rows":null}}"#,CdpResult.self)
 precondition(cdp.Report.Rows == nil)
 do { _ = try decode(#"{"Term":{},"Rows":[]}"#,AttendanceResult.self);fatalError("Missing term must fail") } catch {}
 print("Attendance null collections, partial failure, unknown status and malformed response checks passed")
+precondition(attendanceDateLabel("20260901") == "9월 1일 (화)")
+precondition(attendanceDateLabel("2026-09-01") == "9월 1일 (화)")
+precondition(attendanceDateLabel("20260230") == "20260230")
+precondition(attendanceDateLabel("") == "날짜 미등록")
+typealias Slot=AttendanceCourseRow.Session.Slot
+for (code,label) in [("AT","출석"),("AB","결석"),("LT","지각"),("LE","조퇴"),("OA","공결"),("NEW","확인 필요"),("","미등록")] {
+    precondition(Slot(Index:1,Status:code,Mark:"",Date:"").statusLabel == label)
+}
+precondition(Slot(Index:1,Status:"NEW",Mark:"O",Date:"").statusLabel == "확인 필요")
+let course=AttendanceCourseRow(Index:1,Course:.init(Name:"테스트",Professor:""),Sessions:[.init(Week:"1",Slots:[.init(Index:1,Status:"AT",Mark:"O",Date:"20260901"),.init(Index:2,Status:"AB",Mark:"X",Date:"20260901"),.init(Index:3,Status:"",Mark:"",Date:"")]),.init(Week:"2",Slots:[.init(Index:1,Status:"LT",Mark:"L",Date:"20260901")])],Error:"")
+precondition(course.days.count == 3 && course.days[0].slots.count == 2)
+precondition(course.days[0].slots[1].statusLabel == "결석")
+precondition(course.summary == "출석 1 · 결석 1 · 지각 1 · 미등록 1")
+print("Attendance formatting, grouping, mixed statuses and summary checks passed")
