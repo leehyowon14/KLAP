@@ -19,6 +19,7 @@ import KLAPCore
     private var timer:Timer?
     private var pageObserver:NSObjectProtocol?
     private var shortcutMonitor:Any?
+    private var previousMenu:NSMenu?
     private var previousActivationPolicy:NSApplication.ActivationPolicy?
     private var previewWindow:NSWindow?
     private var pdfView:PDFView?
@@ -98,7 +99,8 @@ import KLAPCore
             content.bottomAnchor.constraint(equalTo:host.bottomAnchor)
         ])
         previewWindow=window;previewKey=key;previewDownload=download;store.opened(key)
-        ApplicationMenu.install(application:NSApp)
+        previousMenu=NSApp.mainMenu
+        ApplicationMenu.install(application:NSApp,preview:window)
         previousActivationPolicy=NSApp.activationPolicy()
         if let url=Bundle.main.url(forResource:"KLAP",withExtension:"icns"),let icon=NSImage(contentsOf:url) {NSApp.applicationIconImage=icon}
         NSApp.setActivationPolicy(.regular)
@@ -106,7 +108,7 @@ import KLAPCore
         shortcutMonitor=NSEvent.addLocalMonitorForEvents(matching:.keyDown) { [weak window] event in
             guard let window, event.window === window else {return event}
             let modifiers=event.modifierFlags.intersection([.command,.control,.option,.shift])
-            if modifiers == .command && event.keyCode == 12 {NSApp.terminate(nil);return nil}
+            if modifiers == .command && event.keyCode == 12 {window.performClose(nil);return nil}
             if (modifiers == .command && event.keyCode == 13) || (modifiers.isEmpty && event.keyCode == 53) {
                 window.performClose(nil);return nil
             }
@@ -136,6 +138,7 @@ import KLAPCore
         guard let closing=notification.object as? NSWindow, closing === previewWindow else {return}
         if let policy=previousActivationPolicy {NSApp.setActivationPolicy(policy)}
         previousActivationPolicy=nil
+        NSApp.mainMenu=previousMenu;previousMenu=nil
         if let monitor=shortcutMonitor {NSEvent.removeMonitor(monitor);shortcutMonitor=nil}
         if let observer=pageObserver {NotificationCenter.default.removeObserver(observer)}
         pageObserver=nil;pdfView=nil

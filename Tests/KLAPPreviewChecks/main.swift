@@ -10,7 +10,6 @@ import KLAPCore
 
 MainActor.assumeIsolated {
     let app=NSApplication.shared
-    ApplicationMenu.install(application:app)
     app.setActivationPolicy(.accessory)
     let root=FileManager.default.temporaryDirectory.appendingPathComponent("klap-preview-check-"+UUID().uuidString)
     defer { try? FileManager.default.removeItem(at:root) }
@@ -81,7 +80,7 @@ MainActor.assumeIsolated {
     let quitWindow=app.windows.first { $0.isVisible && $0.toolbar?.identifier == "KLAP.preview" }!
     let quitEvent=NSEvent.keyEvent(with:.keyDown,location:.zero,modifierFlags:.command,timestamp:0,windowNumber:quitWindow.windowNumber,context:nil,characters:"q",charactersIgnoringModifiers:"q",isARepeat:false,keyCode:12)!
     app.sendEvent(quitEvent);drain()
-    precondition(quitCheck.requests == 1)
+    precondition(quitCheck.requests == 0 && !quitWindow.isVisible && app.activationPolicy() == .accessory)
     manager.closePreview()
     precondition(NSImage(contentsOfFile:"dist/KLAP.app/Contents/Resources/KLAP.icns") != nil)
     for escape in [false,true] {
@@ -96,8 +95,12 @@ MainActor.assumeIsolated {
     drain()
     let files=try! FileManager.default.contentsOfDirectory(atPath:downloads.path)
     precondition(files.count==3)
+    try! manager.show(key:"close",download:{})
+    drain()
     let quit=app.mainMenu!.items.first!.submenu!.items.first!
-    precondition(quit.keyEquivalent=="q" && quit.action==#selector(NSApplication.terminate(_:)))
-    precondition(quit.target === app)
+    precondition(quit.keyEquivalent=="q" && quit.action==#selector(NSWindow.performClose(_:)))
+    precondition(app.sendAction(quit.action!,to:quit.target,from:quit))
+    drain()
+    precondition(quitCheck.requests == 0 && app.activationPolicy() == .accessory)
     print("Preview download x3, manual close, reopen and replacement checks passed")
 }
