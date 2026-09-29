@@ -57,6 +57,18 @@ open dist/KLAP-Dev.app
 
 ## 검증
 
+전체 로컬 검사는 아래 명령으로 실행합니다. 결과에서 외부 빌드 준비물이나 앱 번들이 없어 실행하지 못한 검사는 `SKIP`으로 따로 표시합니다.
+
+```sh
+bash scripts/test.sh
+```
+
+격리된 로컬 Sparkle 설치·재실행 검사는 별도 테스트 앱을 실행하므로 다음처럼 명시하여 포함합니다.
+
+```sh
+KLAP_RUN_UPDATE_INSTALL=1 bash scripts/test.sh
+```
+
 ```sh
 swift run --build-system native KLAPCoreChecks
 bash scripts/build-core.sh
