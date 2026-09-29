@@ -80,19 +80,40 @@ struct DashboardView: View {
         }.padding(12).background(.quaternary.opacity(0.3),in:RoundedRectangle(cornerRadius:10))
     }
     private var settings: some View {
-        VStack(alignment:.leading,spacing:8) {
+        VStack(alignment:.leading,spacing:20) {
             pageHeading("설정") { model.showSettings=false }
-            Divider().padding(.vertical,8)
-            Toggle("일정 자동 동기화 · 30분마다",isOn:$model.autoSync)
-            Toggle("수강 알림",isOn:$model.notifications)
-            Text("수업·학사일정은 캘린더에, 과제·강의 마감은 미리 알림에 동기화합니다. 앱 실행 및 잠자기 복귀 때도 갱신합니다.").font(.caption).foregroundStyle(.secondary)
-            if let date=model.lastSync { Text("마지막 동기화 \(date.formatted())").font(.caption2) }
-            Button("캘린더·목록 다시 선택") { model.onboarding=true;model.setup.step=1 }.disabled(model.busy)
-            Button("계정 로그인") { model.showSettings=false;model.showLogin=true }.disabled(model.busy)
-            Button("로그아웃",role:.destructive) { model.logout() }.disabled(model.busy)
-            Text("로그아웃하면 자동 갱신이 중단됩니다. CLI에 저장된 계정과 이미 등록한 일정은 유지됩니다.").font(.caption).foregroundStyle(.secondary)
-            Text("현재 개발 버전은 KLAP-Cli의 계정·학기·동기화 설정을 공유합니다.").font(.caption2).foregroundStyle(.secondary)
-        }.font(.callout).buttonStyle(FormButtonStyle())
+            VStack(alignment:.leading,spacing:14) {
+                Text("자동화").font(.headline)
+                Toggle(isOn:$model.autoSync) {
+                    VStack(alignment:.leading,spacing:4) {
+                        Text("일정 자동 동기화").font(.callout.weight(.medium))
+                        Text("앱 실행 중 30분마다 갱신").font(.caption).foregroundStyle(.secondary)
+                    }.frame(maxWidth:.infinity,alignment:.leading)
+                }
+                Rectangle().fill(Theme.line).frame(height:1)
+                Toggle(isOn:$model.notifications) { Text("강의 완료·전환 알림").frame(maxWidth:.infinity,alignment:.leading) }
+            }.toggleStyle(.switch).controlSize(.small).padding(16)
+                .background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
+            VStack(alignment:.leading,spacing:12) {
+                Text("등록 위치").font(.headline)
+                Text("시간표·학사일정은 캘린더에, 과제·강의 마감은 미리 알림에 등록합니다.").font(.caption).foregroundStyle(.secondary)
+                settingsRow("캘린더·목록 변경",icon:"calendar") { model.onboarding=true;model.setup.step=1 }
+                if let date=model.lastSync { Text("마지막 동기화 \(date.formatted())").font(.caption).foregroundStyle(.secondary) }
+            }.padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
+            VStack(alignment:.leading,spacing:12) {
+                Text("계정").font(.headline)
+                settingsRow("계정 로그인",icon:"person.crop.circle") { model.showSettings=false;model.showLogin=true;model.selectedCourse=nil }
+                Rectangle().fill(Theme.line).frame(height:1)
+                Button("로그아웃",role:.destructive) { model.logout() }.buttonStyle(.plain).foregroundStyle(Theme.accent).disabled(model.busy)
+                Text("자동 갱신을 중단합니다. CLI 저장 계정과 기존 일정은 유지됩니다.").font(.caption).foregroundStyle(.secondary)
+            }.padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
+        }.font(.callout)
+    }
+    private func settingsRow(_ title:String,icon:String,action:@escaping () -> Void) -> some View {
+        Button(action:action) {
+            HStack { Label(title,systemImage:icon);Spacer();Image(systemName:"chevron.right").font(.caption) }
+                .frame(minHeight:32).contentShape(Rectangle())
+        }.buttonStyle(.plain).disabled(model.busy)
     }
     private var studyProgress: some View {
         VStack(alignment:.leading,spacing:6) {
@@ -150,7 +171,7 @@ struct DashboardView: View {
     private var courseContent: some View {
         VStack(alignment:.leading,spacing:10) {
             HStack {
-                Text(model.selectedCourse ?? "과목별 대시보드").font(.system(size:16,weight:.bold)).lineLimit(1)
+                Text(model.selectedCourse == nil ? "과목별 대시보드" : "공지 및 강의").font(.system(size:16,weight:.bold)).lineLimit(1)
                 Spacer()
                 if !model.eligibleIDs.isEmpty { Button("미수강 \(model.eligibleIDs.count)개 수강") { propose(model.eligibleIDs) }.disabled(model.busy) }
             }
