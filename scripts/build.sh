@@ -7,5 +7,6 @@ cp .build/release/KLAP dist/KLAP.app/Contents/MacOS/KLAP
 cp Resources/Info.plist dist/KLAP.app/Contents/Info.plist
 bash scripts/build-icon.sh
 bash scripts/build-core.sh
+bash scripts/embed-updater.sh
 codesign --force --sign - dist/KLAP.app
 echo "Built: $PWD/dist/KLAP.app"

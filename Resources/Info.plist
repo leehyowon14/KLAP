@@ -15,4 +15,11 @@
 <key>NSCalendarsFullAccessUsageDescription</key><string>KLAP 일정의 생성과 변경을 동기화합니다.</string>
 <key>NSRemindersUsageDescription</key><string>과제와 강의 마감을 미리 알림에 동기화합니다.</string>
 <key>NSRemindersFullAccessUsageDescription</key><string>과제와 강의 마감을 미리 알림에 동기화합니다.</string>
+<key>SUFeedURL</key><string>https://raw.githubusercontent.com/leehyowon14/KLAP/main/Updates/appcast.xml</string>
+<key>SUPublicEDKey</key><string>X4+apGQazSpZ8DwNEYl+sZ/Tox8B+1LIxwzMe7OL4/k=</string>
+<key>SUEnableAutomaticChecks</key><true/>
+<key>SUAutomaticallyUpdate</key><true/>
+<key>SUVerifyUpdateBeforeExtraction</key><true/>
+<key>SUEnableSystemProfiling</key><false/>
+<key>SUScheduledCheckInterval</key><integer>86400</integer>
 </dict></plist>
