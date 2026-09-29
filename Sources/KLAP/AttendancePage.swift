@@ -3,6 +3,7 @@ import SwiftUI
 struct AttendancePage: View {
     @ObservedObject var model:AppModel
     var courseName:String? = nil
+    var refreshID:UUID = UUID()
     var onBack:()->Void = {}
     @ViewState<Bool> private var showAll=false
     @ViewState<Bool> private var cdp=false
@@ -16,7 +17,7 @@ struct AttendancePage: View {
             if let courseName,!showAll {
                 HStack { Text("\(courseName) 출석").font(.headline);Spacer();Button("전체 과목") {showAll=true} }
             }
-            HStack { Text("KLAS 최신 학기 기준").font(.caption).foregroundStyle(.secondary);Spacer();Button("새로고침") {Task {await load()}}.disabled(loading) }
+            Text("KLAS 최신 학기 기준").font(.caption).foregroundStyle(.secondary)
             if loading { ProgressView("출석을 불러오는 중…") }
             if let failure { Text(failure).foregroundStyle(.red);Button("다시 시도") {Task {await load()}}.disabled(loading) }
             if cdp,let report=cdpResult?.Report {
@@ -34,7 +35,7 @@ struct AttendancePage: View {
                     AttendanceCourseCard(row:row,expanded:courseName != nil && !showAll).id("\(row.Index)-\(showAll)")
                 }
             }
-        }.task(id:cdp) {await load()}
+        }.task(id:"\(cdp)-\(refreshID)") {await load()}
     }
     private func load() async {
         loading=true;failure=nil;result=nil;cdpResult=nil

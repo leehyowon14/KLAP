@@ -11,6 +11,7 @@ struct DashboardView: View {
     @ViewState<Bool> private var showChanges = false
     @ViewState<Bool> private var showAcademic = false
     @ViewState<Bool> private var showAttendance = false
+    @ViewState<UUID> private var pageRefresh = UUID()
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment:.center) {
@@ -19,7 +20,7 @@ struct DashboardView: View {
                 Spacer()
                 if !model.onboarding {
                 if model.busy { ProgressView().controlSize(.small).frame(width:28,height:28) }
-                else { Button { Task { await model.refresh() } } label: { Image(systemName:"arrow.clockwise") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.busy || model.onboarding).help("새로고침").accessibilityLabel("새로고침") }
+                else { Button { if showAttendance || showAcademic {pageRefresh=UUID()} else {Task {await model.refresh()}} } label: { Image(systemName:"arrow.clockwise") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.busy || model.onboarding).help("새로고침").accessibilityLabel("새로고침") }
                 Button { showAcademic=true;showAttendance=false;showChanges=false;model.showSettings=false } label: { Image(systemName:"calendar") }.buttonStyle(.plain).frame(width:28,height:28).help("학사일정").accessibilityLabel("학사일정")
                 Button { showAcademic=false;showAttendance=false;showChanges=false;model.showSettings.toggle() } label: { Image(systemName:"gearshape") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.onboarding).help("설정").accessibilityLabel("설정")
                 }
@@ -29,10 +30,10 @@ struct DashboardView: View {
                     if model.onboarding { OnboardingView(model:model,setup:model.setup) }
                     else if showAcademic {
                         pageHeading("학사일정") { showAcademic=false }
-                        AcademicPage(model:model)
+                        AcademicPage(model:model,refreshID:pageRefresh)
                     }
                     else if showAttendance {
-                        AttendancePage(model:model,courseName:model.selectedCourse,onBack:{showAttendance=false})
+                        AttendancePage(model:model,courseName:model.selectedCourse,refreshID:pageRefresh,onBack:{showAttendance=false})
                     }
                     else if model.showSettings { settings }
                     else if showChanges { changesPage }

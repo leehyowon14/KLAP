@@ -3,6 +3,7 @@ import KLAPCore
 
 struct AcademicPage:View {
     @ObservedObject var model:AppModel
+    var refreshID:UUID = UUID()
     @ViewState<Date> private var month=AcademicCalendar.monthStart(Date())
     @ViewState<Date> private var selected=AcademicCalendar.calendar.startOfDay(for:Date())
     @ViewState<AcademicResult?> private var result=nil
@@ -33,7 +34,7 @@ struct AcademicPage:View {
                 }
                 if let url=URL(string:result.SourceURL),url.scheme == "https" {Link("학교 학사일정 원문 ↗",destination:url).font(.caption)}
             }
-        }.task(id:year) {await load()}
+        }.task(id:"\(year)-\(refreshID)") {await load()}
     }
     private func eventRow(_ entry:AcademicEntry)->some View {
         HStack(alignment:.top,spacing:9) {
