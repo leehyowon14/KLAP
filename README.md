@@ -17,7 +17,7 @@ open dist/KLAP-Dev.app
 
 기본 빌드는 `KLAP-Dev.app`입니다. 배포용 앱은 `bash scripts/build.sh --release`로 생성합니다.
 개발 앱은 별도 bundle ID, 설정·캐시·Keychain을 사용하며 다시 로그인해야 합니다. 정식 릴리스 자동 업데이트는 비활성화됩니다. 두 앱을 동시에 실행할 수 있지만 같은 KLAS 계정으로 동시에 수강하거나 같은 캘린더에 동기화하는 것은 피해주세요.
-처음 Applications 폴더 밖에서 실행하면 설치 안내를 한 번 표시합니다. `/Applications`와 `~/Applications`를 지원합니다.
+처음 Applications 폴더 밖에서 실행하면 설치 안내와 ‘응용 프로그램으로 옮기기’ 버튼을 표시합니다. 이동 성공 후 설치된 앱을 다시 실행하며, 기존 앱 교체는 별도로 확인합니다. `/Applications`와 `~/Applications`를 지원합니다.
 
 ## 브랜치 운영
 
