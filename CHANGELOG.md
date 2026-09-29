@@ -1,6 +1,6 @@
 # 변경 내역
 
-## 0.2.1 Beta — 출시 준비
+## 0.2.1 Beta — 2026-09-29
 
 - macOS App Translocation의 원래 경로를 조회하여 Applications 설치 위치 오인 수정
 - 원래 경로를 확인하지 못할 때 잘못된 이동 안내 방지
