@@ -11,9 +11,11 @@ import KLAPCore
     private var observers: [NSObjectProtocol] = []
     private var previewWindow: NSWindow?
     private var previewKey: String?
-    override init() {
+    private let downloadsDirectory: URL?
+    init(root: URL = FileManager.default.temporaryDirectory.appendingPathComponent("KLAP-previews",isDirectory:true), downloadsDirectory: URL? = nil) {
+        self.downloadsDirectory = downloadsDirectory
         super.init()
-        do { store=try PreviewFileStore(root:FileManager.default.temporaryDirectory.appendingPathComponent("KLAP-previews",isDirectory:true)) }
+        do { store=try PreviewFileStore(root:root) }
         catch { startupError=error }
         scheduleCleanup()
         observers.append(NotificationCenter.default.addObserver(forName:NSApplication.willTerminateNotification,object:nil,queue:.main) { [weak self] _ in
@@ -35,7 +37,7 @@ import KLAPCore
     func register(_ url:URL,key:String) throws { try storage().register(url,key:key); scheduleCleanup() }
     func save(_ key:String) throws -> URL {
         if previewKey == key { closePreview() }
-        let directory=try FileManager.default.url(for:.downloadsDirectory,in:.userDomainMask,appropriateFor:nil,create:true)
+        let directory=try downloadsDirectory ?? FileManager.default.url(for:.downloadsDirectory,in:.userDomainMask,appropriateFor:nil,create:true)
         let saved=try storage().moveToDownloads(key,directory:directory)
         scheduleCleanup()
         return saved
@@ -80,6 +82,8 @@ private struct QuickLookFile: NSViewRepresentable {
     let url:URL
     func makeNSView(context:Context) -> QLPreviewView {
         let view=QLPreviewView(frame:.zero,style:.normal)!
+        // SwiftUI dismantling owns close; automatic window close would close it twice.
+        view.shouldCloseWithWindow=false
         view.previewItem=url as NSURL
         view.autostarts=false
         return view
