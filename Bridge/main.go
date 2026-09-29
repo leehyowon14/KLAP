@@ -13,6 +13,8 @@ import (
 )
 
 type request struct {
+	Concurrency       int
+	Adaptive          bool
 	Year              string
 	ExpectedAccount   string
 	Kind              string

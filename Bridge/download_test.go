@@ -47,3 +47,16 @@ func TestDownloadCancellation(t *testing.T) {
 		t.Fatalf("expected cancellation: %v", err)
 	}
 }
+
+func TestDownloadConcurrency(t *testing.T) {
+	for _, pair := range [][2]int{{-1, 1}, {0, 1}, {1, 1}, {3, 3}, {8, 8}, {100, 8}} {
+		if got := downloadConcurrency(pair[0]); got != pair[1] {
+			t.Fatalf("limit %d: %d", pair[0], got)
+		}
+	}
+	fake := &fakeDownloader{}
+	_ = runDownloads(context.Background(), fake, request{IDs: []string{"a"}, Directory: "/tmp", Concurrency: 6, Adaptive: true}, app.UserOption{}, func(string, any) {})
+	if fake.opts.Concurrency != 6 || !fake.opts.Adaptive {
+		t.Fatal("adaptive options lost")
+	}
+}

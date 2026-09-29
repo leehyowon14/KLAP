@@ -37,7 +37,7 @@ func runDownloads(ctx context.Context, service lectureDownloader, r request, use
 		return fmt.Errorf("저장 폴더를 선택해 주세요")
 	}
 	var mu sync.Mutex
-	value, err := service.DownloadAllLectures(ctx, app.LectureDownloadAllOptions{User: user, Dir: r.Directory, Concurrency: 1, LectureIDs: ids, OnProgress: func(p app.LectureDownloadProgress) {
+	value, err := service.DownloadAllLectures(ctx, app.LectureDownloadAllOptions{User: user, Dir: r.Directory, Concurrency: downloadConcurrency(r.Concurrency), Adaptive: r.Adaptive, LectureIDs: ids, OnProgress: func(p app.LectureDownloadProgress) {
 		mu.Lock()
 		defer mu.Unlock()
 		message := ""
@@ -91,4 +91,14 @@ func init() {
 		}
 		return runDownloads(ctx, s, r, user, emit)
 	}
+}
+
+func downloadConcurrency(value int) int {
+	if value < 1 {
+		return 1
+	}
+	if value > 8 {
+		return 8
+	}
+	return value
 }
