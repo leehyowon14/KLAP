@@ -135,7 +135,11 @@ func init() {
 		if err != nil {
 			return err
 		}
-		emit("download-inventory", rows)
+		inventory := []map[string]any{}
+		for _, row := range rows {
+			inventory = append(inventory, map[string]any{"ID": row.ID, "Path": row.Path, "Transcribed": transcriptExists(row.Path)})
+		}
+		emit("download-inventory", inventory)
 		return nil
 	}
 }
