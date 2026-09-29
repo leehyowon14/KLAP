@@ -1,0 +1,21 @@
+#!/bin/bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+root="$PWD"
+source_repo="${KLAP_CLI_SOURCE:-$root/../KLAP_cli}"
+ref="$(cat Bridge/core-ref)"
+staging="$root/.build/cli-$ref"
+mkdir -p "$staging" "$root/dist/KLAP.app/Contents/MacOS"
+if [ ! -f "$staging/go.mod" ]; then
+  git -C "$source_repo" archive "$ref" | tar -x -C "$staging"
+fi
+mkdir -p "$staging/cmd/klap-mac-bridge"
+cp Bridge/*.go "$staging/cmd/klap-mac-bridge/"
+(cd "$staging" && go test ./cmd/klap-mac-bridge && go build -o "$root/dist/KLAP.app/Contents/MacOS/KLAPBridge" ./cmd/klap-mac-bridge)
+for product in ReminderBridge CalendarBridge; do
+  swift build --package-path "$staging/bridges/macos" -c release --product "$product"
+  cp "$staging/bridges/macos/.build/release/$product" "$root/dist/KLAP.app/Contents/MacOS/$product"
+  codesign --force --sign - "$root/dist/KLAP.app/Contents/MacOS/$product"
+done
+codesign --force --sign - "$root/dist/KLAP.app/Contents/MacOS/KLAPBridge"
+cp "$staging/LICENSE" "$root/dist/KLAP.app/Contents/Resources/KLAP-CLI-LICENSE"
