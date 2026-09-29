@@ -24,7 +24,7 @@ precondition(Slot(Index:1,Status:"NEW",Mark:"O",Date:"").statusLabel == "확인 
 let course=AttendanceCourseRow(Index:1,Course:.init(Name:"테스트",Professor:""),Sessions:[.init(Week:"1",Slots:[.init(Index:1,Status:"AT",Mark:"O",Date:"20260901"),.init(Index:2,Status:"AB",Mark:"X",Date:"20260901"),.init(Index:3,Status:"",Mark:"",Date:"")]),.init(Week:"2",Slots:[.init(Index:1,Status:"LT",Mark:"L",Date:"20260901")])],Error:"")
 precondition(course.days.count == 3 && course.days[0].slots.count == 2)
 precondition(course.days[0].slots[1].statusLabel == "결석")
-precondition(course.summary == "출석 1 · 결석 1 · 지각 1 · 미등록 1")
+precondition(course.summary == "출석: 1 / 결석: 1 / 기타: 2")
 print("Attendance formatting, grouping, mixed statuses and summary checks passed")
 let unsorted=AttendanceCourseRow(Index:1,Course:.init(Name:"정렬",Professor:""),Sessions:[
     .init(Week:"10",Slots:[.init(Index:1,Status:"AT",Mark:"O",Date:"20261001")]),
@@ -36,3 +36,10 @@ precondition(unsorted.weeks[1].days[0].slots.map(\.Index)==[1,2])
 precondition(unsorted.weeks[1].days[0].slots.map(\.statusLabel)==["지각","출석"])
 precondition(unsorted.weeks.flatMap(\.days).flatMap(\.slots).count==6)
 print("Week grouping, numeric week order, chronological dates, slot order and record preservation passed")
+
+let summarySlots=["AT","AT","AB","LT","LE","OA","","NEW"].enumerated().map { Slot(Index:$0.offset,Status:$0.element,Mark:"",Date:"") }
+let summaryRow=AttendanceCourseRow(Index:1,Course:.init(Name:"집계",Professor:""),Sessions:[.init(Week:"1",Slots:summarySlots)],Error:"")
+precondition(summaryRow.summary == "출석: 2 / 결석: 1 / 기타: 5")
+precondition(AttendanceCourseRow(Index:1,Course:summaryRow.Course,Sessions:nil,Error:"").summary == "출석: 0 / 결석: 0 / 기타: 0")
+precondition(AttendanceCourseRow(Index:1,Course:summaryRow.Course,Sessions:nil,Error:"오류").summary == "조회 실패")
+print("Three-category summary, zero counts and failed query checks passed")

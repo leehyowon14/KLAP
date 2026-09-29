@@ -91,12 +91,11 @@ extension AttendanceCourseRow {
         }
     }
     var summary:String {
+        guard Error.isEmpty else {return "조회 실패"}
         let slots=(Sessions ?? []).flatMap{$0.Slots ?? []}
-        let labels=["출석","결석","지각","조퇴","공결","미등록","확인 필요"]
-        return labels.compactMap { label -> String? in
-            let count=slots.filter{$0.statusLabel == label}.count
-            return count == 0 ? nil : "\(label) \(count)"
-        }.joined(separator:" · ")
+        let present=slots.filter{$0.statusLabel == "출석"}.count
+        let absent=slots.filter{$0.statusLabel == "결석"}.count
+        return "출석: \(present) / 결석: \(absent) / 기타: \(slots.count-present-absent)"
     }
 }
 struct AttendanceWeek {

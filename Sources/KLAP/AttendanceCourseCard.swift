@@ -14,12 +14,12 @@ struct AttendanceCourseCard:View {
                     VStack(alignment:.leading,spacing:5) {
                         Text(row.Course.Name).font(.system(size:14,weight:.semibold)).foregroundStyle(.primary).multilineTextAlignment(.leading)
                         if !row.Course.Professor.isEmpty {Text(row.Course.Professor).font(.caption).foregroundStyle(.secondary)}
-                        if !row.summary.isEmpty {Text(row.summary).font(.system(size:11)).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)}
                     }
                     Spacer(minLength:8)
+                    Text(row.summary).font(.system(size:11)).monospacedDigit().foregroundStyle(.secondary).fixedSize(horizontal:true,vertical:false)
                     Image(systemName:expanded ? "chevron.up" : "chevron.down").font(.system(size:11,weight:.semibold)).foregroundStyle(.secondary)
                 }.padding(14).frame(maxWidth:.infinity,alignment:.leading).contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityLabel("\(row.Course.Name), 출석 상세 \(expanded ? "접기" : "펼치기")")
+            }.buttonStyle(.plain).accessibilityLabel("\(row.Course.Name), 출석 상세 \(expanded ? "접기" : "펼치기")").accessibilityValue(row.summary)
             if expanded {
                 Divider().padding(.horizontal,14)
                 if !row.Error.isEmpty {Text(row.Error).font(.caption).foregroundStyle(.red).padding(14)}
