@@ -7,11 +7,17 @@ struct NotificationSettings:View {
     var body:some View {
         VStack(alignment:.leading,spacing:14) {
             Text("알림").font(.headline)
-            Toggle("새 공지",isOn:$model.newNoticeNotifications)
+            Toggle(isOn:$model.newNoticeNotifications) {
+                Text("새 공지").frame(maxWidth:.infinity,alignment:.leading)
+            }
             Rectangle().fill(Theme.line).frame(height:1)
-            Toggle("새 강의",isOn:$model.newLectureNotifications)
+            Toggle(isOn:$model.newLectureNotifications) {
+                Text("새 강의").frame(maxWidth:.infinity,alignment:.leading)
+            }
             Rectangle().fill(Theme.line).frame(height:1)
-            Toggle("강의 수강 상태",isOn:$model.notifications)
+            Toggle(isOn:$model.notifications) {
+                Text("강의 수강 상태").frame(maxWidth:.infinity,alignment:.leading)
+            }
             Text("앱 실행 중 30분마다 새 공지·강의를 확인합니다. 새 강의 알림에서 바로 수강하거나 함께 등록된 강의를 전체 수강할 수 있습니다.")
                 .font(.caption).foregroundStyle(.secondary)
             if service.authorization == .denied {

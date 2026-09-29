@@ -124,7 +124,7 @@ struct DashboardView: View {
                                 let ids=proposedIDs
                                 model.studyConfirmationPresented=false
                                 Task { await model.attend(ids) }
-                            }.keyboardShortcut(.defaultAction)
+                            }.buttonStyle(FormButtonStyle(prominent:true,compact:true)).keyboardShortcut(.defaultAction)
                         }
                     }.padding(20).frame(width:300)
                         .background(Theme.surface,in:RoundedRectangle(cornerRadius:16))
