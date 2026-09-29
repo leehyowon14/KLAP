@@ -12,8 +12,12 @@ macOS 13 이상, Swift 5.9 이상과 Go가 필요합니다. 앱 아이콘 컴파
 
 ```sh
 bash scripts/build.sh
-open dist/KLAP.app
+open dist/KLAP-Dev.app
 ```
+
+기본 빌드는 `KLAP-Dev.app`입니다. 배포용 앱은 `bash scripts/build.sh --release`로 생성합니다.
+개발 앱은 별도 bundle ID, 설정·캐시·Keychain을 사용하며 다시 로그인해야 합니다. 정식 릴리스 자동 업데이트는 비활성화됩니다. 두 앱을 동시에 실행할 수 있지만 같은 KLAS 계정으로 동시에 수강하거나 같은 캘린더에 동기화하는 것은 피해주세요.
+처음 Applications 폴더 밖에서 실행하면 설치 안내를 한 번 표시합니다. `/Applications`와 `~/Applications`를 지원합니다.
 
 ## 브랜치 운영
 
@@ -56,8 +60,8 @@ swift run --build-system native KLAPCoreChecks
 bash scripts/build-core.sh
 bash scripts/build.sh
 bash scripts/check-launch.sh
-codesign --verify --deep --strict dist/KLAP.app
-plutil -lint dist/KLAP.app/Contents/Info.plist
+codesign --verify --deep --strict dist/KLAP-Dev.app
+plutil -lint dist/KLAP-Dev.app/Contents/Info.plist
 ```
 
 XCTest가 포함되지 않은 개발 환경에서도 실행되도록 Swift 검증은 실행 파일 방식으로 제공합니다. `check-launch.sh`는 계정 조회 없이 최적화 앱을 직접 실행하고 macOS 앱 열기로도 실행하여 메뉴바 생성, 아이콘, 패널 열기·닫기와 다시 열기를 검증합니다. 진행률, 시간표 범위·겹침, 빈 응답, 대상 이름 충돌을 검증합니다. Go 수강 큐 테스트는 빈 선택·중복·실패·미완료 응답·취소 후 다음 작업 방지를 검증합니다.
