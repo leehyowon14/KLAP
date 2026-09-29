@@ -13,12 +13,18 @@ import (
 )
 
 type request struct {
-	Command   string
-	ID        string
-	StudentID string
-	Password  string
-	IDs       []string
-	Decisions map[string]app.SyncDecision
+	TimetableName     string
+	AcademicName      string
+	ReminderName      string
+	TimetableExisting bool
+	AcademicExisting  bool
+	ReminderExisting  bool
+	Command           string
+	ID                string
+	StudentID         string
+	Password          string
+	IDs               []string
+	Decisions         map[string]app.SyncDecision
 }
 type event struct {
 	Kind  string `json:"kind"`
