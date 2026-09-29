@@ -58,46 +58,97 @@ struct OnboardingView: View {
     @ObservedObject var setup: SetupModel
     @ViewState<String> private var studentID = ""
     @ViewState<String> private var password = ""
+    private let steps = ["계정 연결", "등록 위치", "동기화 설정"]
+
     var body: some View {
-        VStack(alignment:.leading,spacing:12) {
-            HStack { Text("KLAP 시작하기").font(.title3.bold());Spacer();Text("\(setup.step+1) / 3").font(.caption).foregroundStyle(.secondary) }
+        VStack(alignment:.leading,spacing:20) {
+            HStack(spacing:8) {
+                ForEach(0..<steps.count,id:\.self) { index in
+                    HStack(spacing:5) {
+                        Text("\(index+1)").font(.system(size:10,weight:.semibold)).frame(width:18,height:18)
+                            .background(index == setup.step ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08),in:Circle())
+                        Text(steps[index]).font(.caption.weight(index == setup.step ? .semibold : .regular))
+                    }.foregroundStyle(index == setup.step ? Color.accentColor : .secondary)
+                    if index < steps.count-1 { Image(systemName:"chevron.right").font(.system(size:8,weight:.medium)).foregroundStyle(.tertiary) }
+                }
+                Spacer(minLength:0)
+            }.accessibilityElement(children:.ignore).accessibilityLabel("설정 \(setup.step+1)단계, \(steps[setup.step])")
+
+            VStack(alignment:.leading,spacing:6) {
+                Text(title).font(.system(size:21,weight:.semibold))
+                Text(subtitle).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }
+
             if setup.step == 0 {
-                Text("학교 계정을 연결하세요").font(.headline)
-                Text("수업과 강의 정보를 불러옵니다. 비밀번호는 OS 보안 저장소에 보관합니다.").font(.callout).foregroundStyle(.secondary)
-                TextField("학번",text:$studentID)
-                SecureField("비밀번호",text:$password)
+                VStack(alignment:.leading,spacing:12) {
+                    VStack(alignment:.leading,spacing:5) {
+                        Text("학번").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                        TextField("학번 입력",text:$studentID).accessibilityLabel("학번")
+                    }
+                    VStack(alignment:.leading,spacing:5) {
+                        Text("비밀번호").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                        SecureField("KLAS 비밀번호",text:$password).accessibilityLabel("비밀번호")
+                    }
+                }.textFieldStyle(.roundedBorder).controlSize(.large)
                 HStack {
-                    Button("로그인하고 계속") { let secret=password;password="";Task {if await model.login(studentID:studentID,password:secret) {setup.step=1}} }.disabled(model.busy || studentID.isEmpty || password.isEmpty)
-                    Button("CLI 계정 사용") {Task {await model.refresh();if model.snapshot.timetable != nil {setup.step=1}}}.disabled(model.busy)
+                    Button("저장된 계정 사용") {Task {await model.refresh();if model.snapshot.timetable != nil {setup.step=1}}}
+                        .buttonStyle(.borderless).disabled(model.busy)
+                    Spacer()
+                    Button("로그인하고 계속") {
+                        let secret=password;password=""
+                        Task {if await model.login(studentID:studentID,password:secret) {setup.step=1}}
+                    }.buttonStyle(.borderedProminent).disabled(model.busy || studentID.trimmingCharacters(in:.whitespaces).isEmpty || password.isEmpty)
                 }
             } else if setup.step == 1 {
-                Text("어디에 일정을 등록할까요?").font(.headline)
-                Text("시간표·학사일정은 캘린더에, 과제·강의 마감은 미리 알림에 등록합니다. 대상 설정은 KLAP-Cli와 공유됩니다.").font(.caption).foregroundStyle(.secondary)
                 if !setup.ready {
-                    Button(setup.loading ? "권한 확인 중…" : "캘린더·미리 알림 접근 허용") {Task {await setup.requestAccess()}}.disabled(setup.loading)
-                    Button("시스템 권한 설정 열기") {setup.openPrivacySettings()}.font(.caption)
+                    VStack(alignment:.leading,spacing:10) {
+                        Button(setup.loading ? "권한 확인 중…" : "캘린더·미리 알림 접근 허용") {Task {await setup.requestAccess()}}
+                            .buttonStyle(.borderedProminent).disabled(setup.loading)
+                        Button("시스템 권한 설정 열기") {setup.openPrivacySettings()}.buttonStyle(.borderless).font(.caption)
+                    }
                 } else {
-                    destination("시간표",selection:$setup.timetable,options:setup.calendars,newName:setup.newTimetable)
-                    destination("학사일정",selection:$setup.academic,options:setup.calendars,newName:setup.newAcademic)
-                    destination("미리 알림",selection:$setup.reminder,options:setup.reminders,newName:setup.newReminder)
+                    VStack(spacing:12) {
+                        destination("시간표",selection:$setup.timetable,options:setup.calendars,newName:setup.newTimetable)
+                        destination("학사일정",selection:$setup.academic,options:setup.calendars,newName:setup.newAcademic)
+                        destination("미리 알림",selection:$setup.reminder,options:setup.reminders,newName:setup.newReminder)
+                    }
                 }
                 if let error=setup.error {Text(error).font(.caption).foregroundStyle(.orange)}
-                HStack { Button("이전") {setup.step=0};Button("다음") {setup.step=2}.disabled(!setup.ready) }
+                HStack {
+                    Button("이전") {setup.step=0}.buttonStyle(.borderless)
+                    Spacer()
+                    Button("다음") {setup.step=2}.buttonStyle(.borderedProminent).disabled(!setup.ready)
+                }
             } else {
-                Text("자동 동기화와 알림").font(.headline)
-                Toggle("30분마다 일정 자동 동기화",isOn:$setup.automatic)
-                Toggle("강의 완료·전환·오류 알림",isOn:$model.notifications)
-                Text("앱이 실행 중일 때 동기화합니다. 잠자기에서 깨어나면 다시 갱신하며, 메뉴바 팝오버를 닫아도 작업은 계속됩니다.").font(.caption).foregroundStyle(.secondary)
-                HStack {Button("이전") {setup.step=1};Button("설정 저장하고 첫 동기화") {Task {await model.finishSetup()}}.disabled(model.busy)}
+                VStack(alignment:.leading,spacing:12) {
+                    Toggle("30분마다 일정 자동 동기화",isOn:$setup.automatic)
+                    Toggle("강의 완료·전환·오류 알림",isOn:$model.notifications)
+                }.toggleStyle(.switch).controlSize(.small)
+                HStack {
+                    Button("이전") {setup.step=1}.buttonStyle(.borderless)
+                    Spacer()
+                    Button("저장하고 첫 동기화") {Task {await model.finishSetup()}}.buttonStyle(.borderedProminent).disabled(model.busy)
+                }
             }
             if let error=model.error {Text(error).font(.caption).foregroundStyle(.orange).textSelection(.enabled)}
-            Button("나중에 설정") {model.skipSetup()}.font(.caption).disabled(model.busy || setup.loading)
-        }.textFieldStyle(.roundedBorder).padding(12).frame(maxWidth:.infinity,alignment:.leading)
+            Button("나중에 설정") {model.skipSetup()}.buttonStyle(.borderless).font(.caption).foregroundStyle(.secondary).disabled(model.busy || setup.loading)
+        }.padding(.vertical,8).frame(maxWidth:.infinity,alignment:.leading)
+    }
+    private var title: String {
+        ["학교 계정을 연결하세요", "일정을 등록할 곳을 선택하세요", "자동으로 관리할 준비가 됐어요"][setup.step]
+    }
+    private var subtitle: String {
+        ["수업과 강의 정보를 불러옵니다. 비밀번호는 안전하게 보관됩니다.",
+         "수업·학사일정은 캘린더에, 마감은 미리 알림에 등록합니다. 대상 설정은 KLAP-Cli와 공유됩니다.",
+         "앱이 실행 중일 때 동기화하고, 잠자기에서 깨어나면 다시 갱신합니다."][setup.step]
     }
     private func destination(_ label:String,selection:Binding<String>,options:[String],newName:String)->some View {
-        Picker(label,selection:selection) {
-            Text("새로 만들기 · \(newName)").tag("")
-            ForEach(options,id:\.self) {Text($0).tag($0)}
+        HStack {
+            Text(label).font(.callout.weight(.medium)).frame(width:64,alignment:.leading)
+            Picker(label,selection:selection) {
+                Text("새로 만들기 · \(newName)").tag("")
+                ForEach(options,id:\.self) {Text($0).tag($0)}
+            }.labelsHidden().frame(maxWidth:.infinity)
         }
     }
 }
