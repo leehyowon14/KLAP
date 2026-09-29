@@ -6,7 +6,7 @@ import KLAPCore
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var item: NSStatusItem!
-    private let popover = NSPopover()
+    private var panel: MenuPanel!
     private let model = AppModel()
     private var subscriptions = Set<AnyCancellable>()
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -15,9 +15,7 @@ import KLAPCore
         item.isVisible = true
         item.button?.target = self
         item.button?.action = #selector(toggle)
-        popover.behavior = .transient
-        popover.contentSize = NSSize(width:540,height:700)
-        popover.contentViewController = NSHostingController(rootView:DashboardView(model:model))
+        panel = MenuPanel(model:model)
         model.$progress.sink { [weak self] progress in self?.updateIcon(progress) }.store(in:&subscriptions)
         UNUserNotificationCenter.current().delegate = self
         model.reveal = { [weak self] in self?.show() }
@@ -25,11 +23,10 @@ import KLAPCore
         if model.onboarding { DispatchQueue.main.async { [weak self] in self?.show() } }
     }
     func applicationWillTerminate(_ notification: Notification) { model.cancel() }
-    @objc private func toggle() { if popover.isShown {popover.performClose(nil)} else {show()} }
+    @objc private func toggle() { if panel.isVisible {panel.hide()} else {show()} }
     private func show() {
         guard let button=item.button else {return}
-        popover.show(relativeTo:button.bounds,of:button,preferredEdge:.minY)
-        NSApp.activate(ignoringOtherApps:true)
+        panel.show(relativeTo:button)
     }
     private func updateIcon(_ progress:StudyProgress?) {
         guard let button=item.button else {return}

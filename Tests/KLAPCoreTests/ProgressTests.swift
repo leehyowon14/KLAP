@@ -1,5 +1,6 @@
 import KLAPCore
 import Foundation
+import CoreGraphics
 func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
     guard condition() else { fatalError(message) }
 }
@@ -35,3 +36,13 @@ expect(TimetableClock.placements(excluded).isEmpty,"Unknown and online classes e
 let empty=try JSONDecoder().decode(Snapshot.self,from:Data("{\"timetable\":null,\"lectures\":null,\"errors\":[]}".utf8))
 expect(empty.lectures == nil && empty.errors.isEmpty,"Nullable CLI collections")
 print("4 layout and decoding checks passed")
+let screen = CGRect(x:0,y:0,width:1440,height:875)
+let rightPanel=MenuPanelPlacement.frame(anchor:CGRect(x:1410,y:875,width:24,height:25),visibleScreen:screen,size:CGSize(width:540,height:700))
+expect(screen.contains(rightPanel) && rightPanel.maxX == 1432, "Panel remains inside right edge")
+let leftScreen=CGRect(x:-1920,y:0,width:1920,height:1055)
+let leftPanel=MenuPanelPlacement.frame(anchor:CGRect(x:-1910,y:1055,width:24,height:25),visibleScreen:leftScreen,size:CGSize(width:540,height:700))
+expect(leftScreen.contains(leftPanel) && leftPanel.minX == -1912,"Secondary monitor with negative origin")
+let smallScreen=CGRect(x:0,y:0,width:500,height:600)
+let smallPanel=MenuPanelPlacement.frame(anchor:CGRect(x:250,y:600,width:24,height:25),visibleScreen:smallScreen,size:CGSize(width:540,height:700))
+expect(smallScreen.contains(smallPanel),"Small screen bounds")
+print("3 panel positioning checks passed")
