@@ -65,6 +65,9 @@ struct DashboardView: View {
                 Button { if model.studying { model.cancel() }; NSApp.terminate(nil) } label: { Label("종료", systemImage: "power") }.buttonStyle(.borderless).fixedSize().help("KLAP 종료").accessibilityLabel("KLAP 종료")
             }
         }.tint(Theme.accent).foregroundStyle(Theme.ink).buttonStyle(FormButtonStyle(compact:true)).padding(20).frame(maxWidth:.infinity,maxHeight:.infinity)
+        .onChange(of:model.requestedLecture) { id in
+            if let id { propose([id]);model.requestedLecture=nil }
+        }
         .alert("선택한 강의를 자동 수강할까요?",isPresented:$confirmStudy) {
             Button("취소",role:.cancel) {}
             Button("\(proposedIDs.count)개 수강 시작") { Task { await model.attend(proposedIDs) } }
@@ -196,17 +199,7 @@ struct DashboardView: View {
                     Label(notice.Notice.Title,systemImage:"megaphone").font(.caption).foregroundStyle(.secondary)
                 }
                 ForEach(model.lectures) { item in
-                    HStack(spacing:12) {
-                        VStack(alignment:.leading,spacing:6) {
-                            Text(item.row.Lecture.Title).font(.system(size:13,weight:.semibold)).fixedSize(horizontal:false,vertical:true)
-                            Text(item.reason.isEmpty ? "수강 가능 · \(item.row.Lecture.Progress)" : item.reason).font(.system(size:11)).foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength:8)
-                        HStack(spacing:6) {
-                            Button("열기") {Task {await model.openLecture(item.id)}}.disabled(model.busy)
-                            if item.reason.isEmpty { Button("수강") {propose([item.id])}.disabled(model.busy) }
-                        }
-                    }.padding(12).background(Theme.surface,in:RoundedRectangle(cornerRadius:12))
+                    LectureStatusView(item:item,model:model)
                 }
             }
         }
