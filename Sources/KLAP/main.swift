@@ -116,7 +116,15 @@ import KLAPCore
         }
     }
     nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,willPresent notification:UNNotification,withCompletionHandler completionHandler:@escaping (UNNotificationPresentationOptions)->Void) { completionHandler([.banner,.sound]) }
-    nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,didReceive response:UNNotificationResponse,withCompletionHandler completionHandler:@escaping ()->Void) { Task { @MainActor in self.show();completionHandler() } }
+    nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,didReceive response:UNNotificationResponse,withCompletionHandler completionHandler:@escaping ()->Void) { Task { @MainActor in
+        if response.actionIdentifier != UNNotificationDismissActionIdentifier {
+            self.show()
+            if let token=response.notification.request.content.userInfo[ContentNotificationService.tokenKey] as? String {
+                self.model.receiveContentAction(token:token,action:response.actionIdentifier)
+            }
+        }
+        completionHandler()
+    } }
 }
 MainActor.assumeIsolated {
  let app=NSApplication.shared

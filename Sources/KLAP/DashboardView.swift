@@ -87,6 +87,7 @@ struct DashboardView: View {
                 }
             }
         }
+        .onChange(of:model.notificationNavigation) { _ in showChanges=false;showPeriodInfo=false;confirmStudy=false }
         .onChange(of:model.requestedLecture) { id in
             if let id { propose([id]);model.requestedLecture=nil }
         }
@@ -115,8 +116,7 @@ struct DashboardView: View {
                         Text("앱 실행 중 30분마다 갱신").font(.caption).foregroundStyle(.secondary)
                     }.frame(maxWidth:.infinity,alignment:.leading)
                 }
-                Rectangle().fill(Theme.line).frame(height:1)
-                Toggle(isOn:$model.notifications) { Text("강의 완료·전환 알림").frame(maxWidth:.infinity,alignment:.leading) }
+
             }.toggleStyle(.switch).controlSize(.small).padding(16)
                 .background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
             VStack(alignment:.leading,spacing:12) {
@@ -131,6 +131,7 @@ struct DashboardView: View {
                 Button("로그아웃",role:.destructive) { model.logout() }.buttonStyle(.plain).foregroundStyle(Theme.accent).disabled(model.busy)
                 Text("자동 갱신을 중단합니다. CLI 저장 계정과 기존 일정은 유지됩니다.").font(.caption).foregroundStyle(.secondary)
             }.frame(maxWidth:.infinity,alignment:.leading).padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
+            NotificationSettings(model:model,service:model.contentNotifications)
             UpdateSettings(updater:model.updater)
         }.font(.callout)
     }
