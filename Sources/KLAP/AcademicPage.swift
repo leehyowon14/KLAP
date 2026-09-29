@@ -1,4 +1,5 @@
 import SwiftUI
+import KLAPCore
 
 struct AcademicPage:View {
     @ObservedObject var model:AppModel
@@ -35,11 +36,14 @@ struct AcademicPage:View {
         }.task(id:year) {await load()}
     }
     private func eventRow(_ entry:AcademicEntry)->some View {
-        VStack(alignment:.leading,spacing:5) {
+        HStack(alignment:.top,spacing:9) {
+            RoundedRectangle(cornerRadius:2).fill(Color(nsColor:Theme.tone(CourseTones.assign((result?.Events ?? []).map(\.colorIdentity))[entry.colorIdentity] ?? 50))).frame(width:4).frame(minHeight:36)
+            VStack(alignment:.leading,spacing:5) {
             Text(entry.Title).font(.callout.weight(.medium))
             Text(entry.Date).font(.caption).foregroundStyle(.secondary)
             if !entry.Note.isEmpty {Text(entry.Note).font(.caption).foregroundStyle(.secondary)}
-        }.padding(12).frame(maxWidth:.infinity,alignment:.leading).background(Theme.surface,in:RoundedRectangle(cornerRadius:12))
+            }
+        }.fixedSize(horizontal:false,vertical:true).padding(12).frame(maxWidth:.infinity,alignment:.leading).background(Theme.surface,in:RoundedRectangle(cornerRadius:12))
     }
     private func move(_ offset:Int) {
         guard let next=AcademicCalendar.calendar.date(byAdding:.month,value:offset,to:month) else{return}

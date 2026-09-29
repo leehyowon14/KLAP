@@ -35,3 +35,7 @@ let clipped=AcademicCalendar.weeks(date(2026,9,1),events:[entry("2026-08-28","20
 precondition(clipped.first!.markers.first!.startsHere==false && clipped.last!.markers.first!.endsHere==false)
 precondition(AcademicCalendar.weeks(date(2026,9,1),events:[]).allSatisfy{$0.markers.isEmpty})
 print("Overlapping bars, multiple single-day dots, week wrapping, lane reuse and month clipping checks passed")
+let sameEvent=AcademicEntry(Month:"10월",Date:"다른 표시",Title:event.Title,Note:"변경된 비고",Start:event.Start,End:event.End)
+precondition(sameEvent.colorIdentity==event.colorIdentity)
+precondition(entry("2026-09-01","2026-09-01").colorIdentity != entry("2026-09-02","2026-09-02").colorIdentity)
+print("Calendar event color identity stays stable across display and note changes")

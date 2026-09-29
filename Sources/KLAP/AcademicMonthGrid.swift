@@ -1,9 +1,11 @@
 import SwiftUI
+import KLAPCore
 
 struct AcademicMonthGrid:View {
     let month:Date
     @Binding var selected:Date
     let events:[AcademicEntry]
+    private var tones:[String:Double] {CourseTones.assign(events.map(\.colorIdentity))}
     var body:some View {
         VStack(spacing:9) {
             HStack(spacing:0) {
@@ -23,7 +25,7 @@ struct AcademicMonthGrid:View {
                         let column=geometry.size.width/7
                         ZStack(alignment:.topLeading) {
                             ForEach(week.markers) { marker in
-                                let color=Color.accentColor
+                                let color=Color(nsColor:Theme.tone(tones[events[marker.eventIndex].colorIdentity] ?? 50))
                                 let left=CGFloat(marker.firstColumn)*column+(marker.startsHere ? column*0.24 : 0)
                                 let right=CGFloat(marker.lastColumn+1)*column-(marker.endsHere ? column*0.24 : 0)
                                 if marker.singleDay {

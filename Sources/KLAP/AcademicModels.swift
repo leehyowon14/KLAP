@@ -37,6 +37,7 @@ enum AcademicCalendar {
     }
 }
 extension AcademicEntry {
+    var colorIdentity:String {[Title,Start ?? "",End ?? ""].map{"\($0.utf8.count):\($0)"}.joined()}
     func includes(_ date:Date)->Bool {
         guard let Start,let End,!Start.isEmpty,!End.isEmpty else{return false}
         let key=AcademicCalendar.key(date)
