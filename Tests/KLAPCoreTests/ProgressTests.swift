@@ -17,7 +17,11 @@ expect(TimetableClock.minutes(period: 11, span: 2) == nil, "Overflow period")
 expect(TimetableClock.minutes(period: 0, span: 2)?.end == 590, "Special consecutive class")
 expect(TimetableClock.minutes(period: 6, span: 3)?.end == 1155, "Evening consecutive class")
 expect(TimetableClock.minutes(period: 11, span: 1)?.end == 1325, "Night class")
-print("6 timetable checks passed")
+expect(DestinationPolicy.uniqueNames(["A","A","B"," "]) == ["B"], "Ambiguous destinations")
+expect(DestinationPolicy.uniqueNames([]).isEmpty, "Empty destinations")
+expect(DestinationPolicy.availableName("KLAP",existing:["KLAP","KLAP (2)"]) == "KLAP (3)", "New destination collisions")
+expect(DestinationPolicy.availableName("KLAP",existing:[]) == "KLAP", "First destination")
+print("10 timetable and destination checks passed")
 
 func makeEntry(_ period:Int, _ span:Int=1, day:Int=1, online:Bool=false) throws -> TimetableEntry {
     let data=try JSONSerialization.data(withJSONObject:["SubjectID":"course", "SubjectName":"과목", "Weekday":day, "Period":period, "Span":span, "Room":"101", "Online":online])
