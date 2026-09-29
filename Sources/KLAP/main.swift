@@ -27,7 +27,8 @@ import KLAPCore
         model.$progress.sink { [weak self] progress in self?.updateIcon(progress) }.store(in:&subscriptions)
         UNUserNotificationCenter.current().delegate = self
         model.reveal = { [weak self] in self?.show() }
-        if !ProcessInfo.processInfo.arguments.contains("--smoke-test") { model.start()
+        if !ProcessInfo.processInfo.arguments.contains("--smoke-test") { InstallationNotice.showIfNeeded()
+            model.start()
             model.updater.observeActivity(Publishers.CombineLatest3(model.$busy,model.$studying,model.$onboarding).map {$0 || $1 || $2}.eraseToAnyPublisher())
             model.updater.start() }
         if !ProcessInfo.processInfo.arguments.contains("--smoke-test") && !LoginLaunch.isLoginItem(NSAppleEventManager.shared().currentAppleEvent) { DispatchQueue.main.async { [weak self] in self?.show() } }
