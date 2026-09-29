@@ -5,6 +5,7 @@ import Network
 import KLAPCore
 
 @MainActor final class AppModel: ObservableObject {
+    let attachments = AttachmentManager()
     @Published var loggedOut = UserDefaults.standard.bool(forKey:"loggedOut")
     @Published var requestedLecture: String?
     @Published var noticeDetail: NoticeDetailResult?
@@ -141,7 +142,7 @@ import KLAPCore
         let content = UNMutableNotificationContent(); content.title = title; content.body = body; content.sound = .default
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
-    private func perform(_ request: [String: Any], handle: @escaping (BridgeEvent) throws -> Void) async {
+    func perform(_ request: [String: Any], handle: @escaping (BridgeEvent) throws -> Void) async {
         guard !busy else { return }
         busy = true; error = nil
         defer { busy = false }
