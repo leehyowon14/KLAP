@@ -165,3 +165,13 @@ store=try PreviewFileStore(root:previewRoot,now:baseDate.addingTimeInterval(1180
 expect(!FileManager.default.fileExists(atPath:third.path),"Expired cache cleaned on launch")
 do { try store.register(saved,key:"outside"); fatalError("Accepted external file") } catch { }
 print("11 preview file lifecycle checks passed")
+
+let linkedText="한글 안내 👋\nhttps://discord.gg/3vv49s3UJ\n자세한 내용: (https://example.org/docs?q=1&lang=ko)."
+let linked=LinkedBody.attributed(linkedText)
+let urls=linked.runs.compactMap { $0.link?.absoluteString }
+expect(String(linked.characters)==linkedText,"Link detection preserves Korean, emoji and line breaks")
+expect(urls==["https://discord.gg/3vv49s3UJ","https://example.org/docs?q=1&lang=ko"],"Detect URLs without surrounding punctuation")
+expect(LinkedBody.attributed("").runs.compactMap(\.link).isEmpty,"Empty body")
+expect(LinkedBody.attributed("일반 공지입니다").runs.compactMap(\.link).isEmpty,"Plain body")
+expect(LinkedBody.attributed("javascript:alert(1) file:///tmp/a").runs.compactMap(\.link).isEmpty,"Do not make executable or local URLs clickable")
+print("5 body link checks passed")

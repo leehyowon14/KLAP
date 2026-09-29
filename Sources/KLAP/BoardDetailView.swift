@@ -26,7 +26,7 @@ struct BoardDetailView: View {
                     if let detail {
                         Text(boardMetadata(detail.Detail.Author,detail.Detail.Registered)).font(.caption).foregroundStyle(.secondary)
                         Divider()
-                        Text(detail.Detail.ContentText.isEmpty ? "본문이 없습니다." : detail.Detail.ContentText).lineSpacing(5).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
+                        Text(LinkedBody.attributed(detail.Detail.ContentText.isEmpty ? "본문이 없습니다." : detail.Detail.ContentText)).lineSpacing(5).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
                         if let url=originalURL { Link("KLAS에서 원문 보기 ↗",destination:url).font(.caption) }
                         Divider()
                         HStack { Label("첨부파일",systemImage:"paperclip").font(.headline); Text("\(detail.Files?.count ?? 0)").foregroundStyle(.secondary) }
