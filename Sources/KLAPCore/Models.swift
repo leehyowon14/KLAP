@@ -83,6 +83,7 @@ public struct NoticeContent: Decodable {
     public let Attachment: String?
 }
 public struct Snapshot: Codable {
+    public var studentName: String?
     public var account: String?
     public var timetable: Timetable?
     public var lectures: [LectureItem]?

@@ -188,6 +188,7 @@ import KLAPCore
             }
             snapshot.account=fresh.account
             if let nextTerm=fresh.timetable?.Term.value, let previousTerm=snapshot.timetable?.Term.value, nextTerm != previousTerm { snapshot=Snapshot();selectedCourse=nil }
+            snapshot.studentName=fresh.studentName
             // Partial failures retain the previous data and remain visibly stale.
             if let value = fresh.timetable { snapshot.timetable = value }
             if let value = fresh.lectures { snapshot.lectures = value }

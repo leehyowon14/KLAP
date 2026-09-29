@@ -14,7 +14,7 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment:.center) {
                 Image(systemName:"graduationcap.fill").font(.title2).foregroundStyle(Color(nsColor:Theme.tone(50)))
-                VStack(alignment:.leading,spacing:2) { Text("KLAP").font(.title3.bold()); Text(model.snapshot.timetable?.Term.label ?? "나의 캠퍼스").font(.caption).foregroundStyle(.secondary) }
+                VStack(alignment:.leading,spacing:2) { Text(model.snapshot.studentName.map { "KLAP - \($0)" } ?? "KLAP").font(.title3.bold()).lineLimit(1); Text(model.snapshot.timetable?.Term.label ?? "나의 캠퍼스").font(.caption).foregroundStyle(.secondary) }
                 Spacer()
                 if !model.onboarding {
                 if model.busy { ProgressView().controlSize(.small).frame(width:28,height:28) }

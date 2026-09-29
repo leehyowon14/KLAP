@@ -125,6 +125,9 @@ func main() {
 			break
 		}
 		result := map[string]any{"account": account}
+		if name, nameErr := s.StudentName(ctx, user); nameErr == nil {
+			result["studentName"] = name
+		}
 		problems := []string{}
 		table, e := s.Timetable(ctx, app.TimetableOptions{User: user, Refresh: true})
 		if e != nil {
