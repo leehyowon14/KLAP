@@ -13,6 +13,7 @@ import (
 )
 
 type request struct {
+	ExpectedAccount   string
 	Kind              string
 	SubjectID         string
 	BoardNo           string
