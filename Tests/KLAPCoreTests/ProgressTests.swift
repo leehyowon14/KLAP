@@ -55,3 +55,12 @@ expect(StudyTime(achieved:"2",required:"0").remaining == nil,"Unknown duration")
 expect(StudyTime(achieved:"-1",required:"20").remaining == nil,"Negative achieved")
 expect(StudyTime.minutes(0.5) == "1분","Round remaining up")
 print("7 study time checks passed")
+
+let reminderNote="--- KLAP ---\nID: lecture:abc\n[This reminder is created by KLAP.]"
+expect(ReminderIdentity.matches(notes:reminderNote,lectureID:"abc"),"Exact lecture ID")
+expect(ReminderIdentity.matches(notes:reminderNote,lectureID:"lecture:abc"),"Prefixed lecture ID")
+expect(!ReminderIdentity.matches(notes:reminderNote,lectureID:"ab"),"No prefix collision")
+expect(!ReminderIdentity.matches(notes:"ID: lecture:abc",lectureID:"abc"),"No unowned reminder")
+expect(!ReminderIdentity.matches(notes:nil,lectureID:"abc"),"Missing metadata")
+expect(!ReminderIdentity.matches(notes:reminderNote,lectureID:""),"Empty identity")
+print("6 reminder identity checks passed")

@@ -32,6 +32,9 @@ struct DashboardView: View {
                     if let error = model.error {
                         Label(error,systemImage:"exclamationmark.triangle").font(.caption).foregroundStyle(.orange).textSelection(.enabled)
                     }
+                    if let error=model.reminderCompletionError {
+                        Label(error,systemImage:"exclamationmark.triangle").font(.callout).foregroundStyle(.red)
+                    }
                     if model.studying { studyProgress }
                     if !model.conflicts.isEmpty { conflicts }
                     if model.courses.isEmpty {

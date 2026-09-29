@@ -46,6 +46,9 @@ import KLAPCore
     let setup = SetupModel()
     @Published var onboarding = !UserDefaults.standard.bool(forKey: "onboardingComplete")
     private let bridge = BridgeClient()
+    private let reminderCompletion = ReminderCompletion()
+    @Published var reminderCompletionError: String?
+    private var completionTasks: [Task<Void,Never>] = []
     private var timer: Timer?
     private let network = NWPathMonitor()
     private var wasOffline = false
@@ -187,6 +190,7 @@ import KLAPCore
     }
     func attend(_ ids: [String]) async {
         guard !busy, !ids.isEmpty else { return }
+        reminderCompletionError=nil
         cancelled = false; studying = true; requestNotifications()
         studyQueue=ids.reduce(into:[]) { if !$0.contains($1) { $0.append($1) } }
         updateStudyTime(id:studyQueue.first)
@@ -204,7 +208,15 @@ import KLAPCore
                 updateStudyTime(id:value.id,achieved:value.achieved,required:value.required)
                 studyTitle = title
                 progress = StudyProgress(percent: value.percent ?? 0, current: value.current ?? 0, total: value.total ?? ids.count)
-            case "completed": notify("수강 완료", "\(title) · \(value.current ?? 0)/\(value.total ?? ids.count)")
+            case "completed":
+                if let id=value.id, UserDefaults.standard.bool(forKey:"destinationsConfigured"),
+                   let list=UserDefaults.standard.string(forKey:"destinationReminder") {
+                    completionTasks.append(Task { [self] in
+                        do { try await self.reminderCompletion.complete(lectureID:id,listName:list) }
+                        catch { self.reminderCompletionError="수강은 완료됐지만 미리 알림 완료 처리에 실패했습니다: " + error.localizedDescription }
+                    })
+                }
+                notify("수강 완료", "\(title) · \(value.current ?? 0)/\(value.total ?? ids.count)")
             case "failed": notify("수강 확인 필요", "\(title): \(value.message ?? "실패")"); message = value.message ?? "수강 실패"
             case "done":
                 message = "수강 종료 · 성공 \(value.success ?? 0), 실패 \(value.failed ?? 0)"
@@ -212,6 +224,8 @@ import KLAPCore
             default: break
             }
         }
+        for task in completionTasks { await task.value }
+        completionTasks=[]
         studying = false; progress = nil
         if cancelled { message = "수강을 취소했습니다" }
         else if let error { notify("수강 작업 중단", error) }
