@@ -1,5 +1,6 @@
 import AppKit
 import CoreGraphics
+import PDFKit
 import KLAPCore
 
 MainActor.assumeIsolated {
@@ -15,7 +16,7 @@ MainActor.assumeIsolated {
         let file=folder.appendingPathComponent("sample.pdf")
         var bounds=CGRect(x:0,y:0,width:240,height:320)
         let context=CGContext(file as CFURL,mediaBox:&bounds,nil)!
-        context.beginPDFPage(nil);context.setFillColor(CGColor(gray:0.5,alpha:1));context.fill(CGRect(x:20,y:20,width:80,height:80));context.endPDFPage();context.closePDF()
+        for _ in 0..<3 { context.beginPDFPage(nil);context.setFillColor(CGColor(gray:0.5,alpha:1));context.fill(CGRect(x:20,y:20,width:80,height:80));context.endPDFPage() };context.closePDF()
         try manager.register(file,key:key)
         return file
     }
@@ -29,6 +30,11 @@ MainActor.assumeIsolated {
             drain()
             let window=app.windows.first { $0.isVisible && $0.toolbar?.identifier == "KLAP.preview" }!
             precondition(window.subtitle.hasPrefix("PDF · "))
+            let pdf=window.contentView as! PDFView
+            precondition(pdf.displayMode == .singlePageContinuous && pdf.displayDirection == .vertical)
+            precondition(pdf.document?.pageCount == 3)
+            pdf.goToLastPage(nil)
+            precondition(pdf.currentPage == pdf.document?.page(at:2))
             if i == 0, let path=ProcessInfo.processInfo.environment["KLAP_PREVIEW_SCREENSHOT"], let view=window.contentView?.superview,
                let bitmap=view.bitmapImageRepForCachingDisplay(in:view.bounds) {
                 view.cacheDisplay(in:view.bounds,to:bitmap)

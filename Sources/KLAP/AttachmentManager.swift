@@ -1,5 +1,6 @@
 import AppKit
 import Quartz
+import PDFKit
 import UniformTypeIdentifiers
 import KLAPCore
 
@@ -10,6 +11,7 @@ import KLAPCore
     private var observers: [NSObjectProtocol] = []
     private var previewWindow: NSWindow?
     private var previewView: QLPreviewView?
+    private var pdfView: PDFView?
     private var previewKey: String?
     private var previewDownload: (() -> Void)?
     private let downloadItemID = NSToolbarItem.Identifier("KLAP.preview.download")
@@ -65,13 +67,25 @@ import KLAPCore
         window.titlebarSeparatorStyle = .none
         window.toolbar=toolbar
         previewDownload=download
-        let view=QLPreviewView(frame:window.contentLayoutRect,style:.compact)!
-        // This controller closes the view exactly once in windowWillClose.
-        view.shouldCloseWithWindow=false
-        view.autostarts=false
-        view.previewItem=url as NSURL
-        window.contentView=view
-        previewView=view
+        if url.pathExtension.lowercased() == "pdf", let document=PDFDocument(url:url) {
+            let view=PDFView(frame:window.contentLayoutRect)
+            view.displayMode = .singlePageContinuous
+            view.displayDirection = .vertical
+            view.displaysPageBreaks=true
+            view.backgroundColor = .windowBackgroundColor
+            view.document=document
+            view.autoScales=true
+            window.contentView=view
+            pdfView=view
+        } else {
+            let view=QLPreviewView(frame:window.contentLayoutRect,style:.compact)!
+            // This controller closes the view exactly once in windowWillClose.
+            view.shouldCloseWithWindow=false
+            view.autostarts=false
+            view.previewItem=url as NSURL
+            window.contentView=view
+            previewView=view
+        }
         if let screen=NSScreen.main {
             window.setContentSize(NSSize(width:min(760,screen.visibleFrame.width-80),height:min(720,screen.visibleFrame.height-100)))
         }
@@ -81,6 +95,8 @@ import KLAPCore
     }
     func closePreview() { previewWindow?.close() }
     func windowWillClose(_ notification:Notification) {
+        pdfView?.document=nil
+        pdfView=nil
         previewView?.close()
         previewView=nil
         if let key=previewKey { do { try storage().closed(key) } catch { NSLog("KLAP preview expiry persistence failed") } }
