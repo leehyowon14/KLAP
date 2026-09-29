@@ -10,13 +10,25 @@ private final class KeyablePanel: NSPanel {
 /// A rounded menu-bar panel without NSPopover's pointer. The model outlives it.
 @MainActor final class MenuPanel {
     private let window: KeyablePanel
+    private var pendingShow: DispatchWorkItem?
     private var outsideMonitor: Any?
     private var keyMonitor: Any?
+    func isAnchored(to button:NSStatusBarButton) -> Bool {
+        guard let statusWindow=button.window, let screen=statusWindow.screen else { return false }
+        let anchor=statusWindow.convertToScreen(button.convert(button.bounds,to:nil))
+        guard MenuPanelPlacement.validAnchor(anchor,screen:screen.frame) else { return false }
+        let expected=MenuPanelPlacement.frame(anchor:anchor,visibleScreen:screen.visibleFrame,size:CGSize(width:540,height:700))
+        return abs(window.frame.minX-expected.minX) < 1 && abs(window.frame.maxY-expected.maxY) < 1
+    }
     var isVisible: Bool { window.isVisible }
+    var isPresented: Bool { window.isVisible && window.isKeyWindow && NSApp.isActive }
 
     init(model: AppModel) {
         window = KeyablePanel(contentRect:NSRect(x:0,y:0,width:540,height:700),styleMask:[.borderless],backing:.buffered,defer:false)
         window.isReleasedWhenClosed = false
+        // Visibility is managed by our outside-click handler, not NSPanel's
+        // implicit app-deactivation hiding.
+        window.hidesOnDeactivate = false
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = true
@@ -32,21 +44,42 @@ private final class KeyablePanel: NSPanel {
     }
 
     func show(relativeTo button: NSStatusBarButton) {
-        guard let screen=button.window?.screen ?? NSScreen.main else {return}
-        // Keep the controls reachable when macOS temporarily has no status-item window.
-        let anchor: CGRect
-        if let statusWindow=button.window {
-            anchor=statusWindow.convertToScreen(button.convert(button.bounds,to:nil))
-        } else {
-            anchor=CGRect(x:screen.visibleFrame.maxX-32,y:screen.visibleFrame.maxY,width:24,height:24)
+        pendingShow?.cancel()
+        present(relativeTo:button,attempt:0)
+    }
+
+    private func present(relativeTo button:NSStatusBarButton, attempt:Int) {
+        guard let statusWindow=button.window, let screen=statusWindow.screen,
+              MenuPanelPlacement.validAnchor(statusWindow.convertToScreen(button.convert(button.bounds,to:nil)),screen:screen.frame) else {
+            // A newly registered status item can temporarily report an origin of
+            // (0,0). Wait for AppKit layout instead of opening in a guessed corner.
+            guard attempt < 20 else { pendingShow=nil;return }
+            let retry=DispatchWorkItem { [weak self, weak button] in
+                guard let self, let button else { return }
+                self.present(relativeTo:button,attempt:attempt+1)
+            }
+            pendingShow=retry
+            DispatchQueue.main.asyncAfter(deadline:.now()+0.05,execute:retry)
+            return
         }
+        pendingShow=nil
+        let anchor=statusWindow.convertToScreen(button.convert(button.bounds,to:nil))
         let frame=MenuPanelPlacement.frame(anchor:anchor,visibleScreen:screen.visibleFrame,size:CGSize(width:540,height:700))
         window.setFrame(frame,display:true)
         NSApp.activate(ignoringOtherApps:true)
         window.makeKeyAndOrderFront(nil)
+        window.setFrame(frame,display:true)
         if outsideMonitor == nil {
-            outsideMonitor=NSEvent.addGlobalMonitorForEvents(matching:[.leftMouseDown,.rightMouseDown]) { [weak self] _ in
-                Task { @MainActor in self?.hide() }
+            outsideMonitor=NSEvent.addGlobalMonitorForEvents(matching:[.leftMouseDown,.rightMouseDown]) { [weak self, weak button] _ in
+                MainActor.assumeIsolated {
+                    // The status button handles its own click on mouse-up.
+                    // Do not queue a hide that can run after that click opens us.
+                    if let button, let statusWindow=button.window {
+                        let bounds=statusWindow.convertToScreen(button.convert(button.bounds,to:nil))
+                        if bounds.contains(NSEvent.mouseLocation) { return }
+                    }
+                    self?.hide()
+                }
             }
             keyMonitor=NSEvent.addLocalMonitorForEvents(matching:.keyDown) { [weak self] event in
                 if event.keyCode == 53, self?.window.attachedSheet == nil { self?.hide();return nil }
@@ -56,6 +89,8 @@ private final class KeyablePanel: NSPanel {
     }
 
     func hide() {
+        pendingShow?.cancel()
+        pendingShow=nil
         guard window.attachedSheet == nil else {return}
         window.orderOut(nil)
         if let monitor=outsideMonitor {NSEvent.removeMonitor(monitor);outsideMonitor=nil}

@@ -64,3 +64,11 @@ expect(!ReminderIdentity.matches(notes:"ID: lecture:abc",lectureID:"abc"),"No un
 expect(!ReminderIdentity.matches(notes:nil,lectureID:"abc"),"Missing metadata")
 expect(!ReminderIdentity.matches(notes:reminderNote,lectureID:""),"Empty identity")
 print("6 reminder identity checks passed")
+
+let fullScreen=CGRect(x:0,y:0,width:1440,height:900)
+expect(!MenuPanelPlacement.validAnchor(.zero,screen:fullScreen),"Unlaid status item")
+expect(!MenuPanelPlacement.validAnchor(CGRect(x:0,y:0,width:24,height:24),screen:fullScreen),"Temporary origin rejected")
+expect(MenuPanelPlacement.validAnchor(CGRect(x:1200,y:875,width:24,height:25),screen:fullScreen),"Menu bar anchor accepted")
+expect(MenuPanelPlacement.validAnchor(CGRect(x:-1200,y:875,width:24,height:25),screen:CGRect(x:-1440,y:0,width:1440,height:900)),"Negative screen anchor accepted")
+expect(!MenuPanelPlacement.validAnchor(CGRect(x:1600,y:875,width:24,height:25),screen:fullScreen),"Wrong screen rejected")
+print("5 startup anchor checks passed")

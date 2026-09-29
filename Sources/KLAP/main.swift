@@ -43,7 +43,7 @@ import KLAPCore
             NSMenu.popUpContextMenu(menu,with:NSApp.currentEvent!,for:button)
             return
         }
-        if panel.isVisible {panel.hide()} else {show()}
+        if panel.isPresented {panel.hide()} else {show()}
     }
     @objc private func openPanel() { show() }
     func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows flag:Bool)->Bool {
@@ -52,8 +52,12 @@ import KLAPCore
     }
     func smokeCheck() -> [String:Bool] {
         guard let item, let panel else { return ["initialized":false] }
+        panel.hide()
+        item.button?.performClick(nil)
+        let firstClickOpened=panel.isVisible
         show()
         let shown=panel.isVisible
+        let anchored=item.button.map { panel.isAnchored(to:$0) } ?? false
         panel.hide()
         _ = applicationShouldHandleReopen(NSApp,hasVisibleWindows:false)
         let reopened=panel.isVisible
@@ -62,7 +66,7 @@ import KLAPCore
                 "accessory":NSApp.activationPolicy() == .accessory,
                 "statusVisible":item.isVisible,"iconPresent":item.button?.image != nil,
                 "statusHasWidth":(item.button?.frame.width ?? 0) > 0,
-                "panelOpened":shown,"reopenOpened":reopened,"panelClosed":!panel.isVisible]
+                "panelAnchored":anchored,"firstClickOpened":firstClickOpened,"panelOpened":shown,"reopenOpened":reopened,"panelClosed":!panel.isVisible]
     }
     private func show() {
         guard let button=item?.button, let panel else {return}
