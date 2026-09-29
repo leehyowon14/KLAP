@@ -162,6 +162,7 @@ type transcriptPhaseResult struct{ value app.LectureTranscriptResult }
 
 func (p pipelineDownloader) DownloadAllLectures(ctx context.Context, opts app.LectureDownloadAllOptions) (app.LectureDownloadAllResult, error) {
 	events := make(chan any, 16)
+	report := transcriptReporter(p.send)
 	go func() {
 		o := opts
 		o.OnProgress = func(v app.LectureDownloadProgress) { events <- v }
@@ -216,8 +217,7 @@ func (p pipelineDownloader) DownloadAllLectures(ctx context.Context, opts app.Le
 			}
 			p.send("download-finished", true)
 		case app.LectureTranscriptProgress:
-            message:="";if v.Err!=nil{message=v.Err.Error()}
-            p.send("transcript-progress",map[string]any{"ID":v.Lecture.ID,"Stage":v.Stage,"Path":v.OutputPath,"Error":message,"Progress":v.Progress})
+			report(v)
 		case transcriptPhaseResult:
 			active = false
 		}

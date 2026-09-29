@@ -6,19 +6,37 @@ import (
 	"github.com/leehyowon14/KLAP-cli/internal/app"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 func transcriptExists(path string) bool {
 	info, err := os.Stat(app.TranscriptPathForDownload(path))
 	return err == nil && info.Mode().IsRegular() && info.Size() > 0
 }
-func emitTranscript(v app.LectureTranscriptProgress) {
-	message := ""
-	if v.Err != nil {
-		message = v.Err.Error()
-	}
-	emit("transcript-progress", map[string]any{"ID": v.Lecture.ID, "Stage": v.Stage, "Path": v.OutputPath, "Error": message, "Progress": v.Progress})
+
+type transcriptSample struct {
+	stage    app.LectureTransferStage
+	progress float64
+	at       time.Time
 }
+
+func transcriptReporter(send func(string, any)) func(app.LectureTranscriptProgress) {
+	last := map[string]transcriptSample{}
+	return func(v app.LectureTranscriptProgress) {
+		now := time.Now()
+		previous, seen := last[v.Lecture.ID]
+		if seen && v.Stage == app.LectureStageTranscribe && previous.stage == v.Stage && (v.Progress == previous.progress || now.Sub(previous.at) < 250*time.Millisecond) {
+			return
+		}
+		last[v.Lecture.ID] = transcriptSample{v.Stage, v.Progress, now}
+		message := ""
+		if v.Err != nil {
+			message = v.Err.Error()
+		}
+		send("transcript-progress", map[string]any{"ID": v.Lecture.ID, "Stage": v.Stage, "Path": v.OutputPath, "Error": message, "Progress": v.Progress})
+	}
+}
+
 func init() {
 	handlers["lecture-transcribe"] = func(ctx context.Context, s *app.Service, r request) error {
 		if !filepath.IsAbs(r.Directory) || r.ID == "" {
@@ -42,7 +60,7 @@ func init() {
 		for _, file := range files {
 			if file.ID == r.ID {
 				emit("transcript-queue", []string{r.ID})
-				s.TranscribeDownloadedLectures(ctx, []app.LectureDownloadItem{{Lecture: app.LectureRow{ID: r.ID}, Path: file.Path}}, app.LectureTranscriptOptions{Locale: r.Locale, OnProgress: emitTranscript})
+				s.TranscribeDownloadedLectures(ctx, []app.LectureDownloadItem{{Lecture: app.LectureRow{ID: r.ID}, Path: file.Path}}, app.LectureTranscriptOptions{Locale: r.Locale, OnProgress: transcriptReporter(emit)})
 				if ctx.Err() != nil {
 					return ctx.Err()
 				}

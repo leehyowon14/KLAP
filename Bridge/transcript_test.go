@@ -27,3 +27,17 @@ func TestTranscriptExists(t *testing.T) {
 		t.Fatal("directory marked complete")
 	}
 }
+
+func TestTranscriptReporterPreservesTransitions(t *testing.T) {
+	var stages []app.LectureTransferStage
+	report := transcriptReporter(func(_ string, v any) { stages = append(stages, v.(map[string]any)["Stage"].(app.LectureTransferStage)) })
+	for i := 0; i < 100; i++ {
+		report(app.LectureTranscriptProgress{Lecture: app.LectureRow{ID: "a"}, Stage: app.LectureStageTranscribe, Progress: 0.5})
+	}
+	report(app.LectureTranscriptProgress{Lecture: app.LectureRow{ID: "a"}, Stage: app.LectureStageTranscribed})
+	report(app.LectureTranscriptProgress{Lecture: app.LectureRow{ID: "b"}, Stage: app.LectureStageTranscribe})
+	report(app.LectureTranscriptProgress{Lecture: app.LectureRow{ID: "b"}, Stage: app.LectureStageTranscriptError})
+	if len(stages) != 4 {
+		t.Fatalf("redundant updates or lost terminal events: %v", stages)
+	}
+}
