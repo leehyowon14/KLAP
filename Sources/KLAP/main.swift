@@ -71,20 +71,22 @@ import KLAPCore
     private func updateIcon(_ progress:StudyProgress?) {
         guard let button=item.button else {return}
         if let progress {
-            let image=NSImage(size:NSSize(width:20,height:20),flipped:false) { rect in
+            let image=NSImage(size:NSSize(width:24,height:24),flipped:false) { rect in
                 NSColor.labelColor.withAlphaComponent(0.22).setStroke()
-                let background=NSBezierPath(ovalIn:NSRect(x:2,y:2,width:16,height:16));background.lineWidth=2;background.stroke()
+                let background=NSBezierPath(ovalIn:NSRect(x:1,y:1,width:22,height:22));background.lineWidth=2;background.stroke()
                 NSColor.labelColor.setStroke()
                 let arc=NSBezierPath();arc.lineWidth=2.5;arc.lineCapStyle = .round
-                arc.appendArc(withCenter:NSPoint(x:10,y:10),radius:8,startAngle:90,endAngle:90-CGFloat(progress.fraction)*360,clockwise:true);arc.stroke()
+                arc.appendArc(withCenter:NSPoint(x:12,y:12),radius:11,startAngle:90,endAngle:90-CGFloat(progress.fraction)*360,clockwise:true);arc.stroke()
+                NSImage(systemSymbolName:"graduationcap.fill",accessibilityDescription:nil)?
+                    .draw(in:NSRect(x:5,y:6,width:14,height:12))
                 return true
             }
-            image.isTemplate=true;button.image=image;button.title=" \(progress.label)"
+            image.isTemplate=true;button.image=image;button.title="\(progress.label) ";button.imagePosition = .imageTrailing
             button.toolTip="KLAP · \(Int(progress.fraction*100))% · \(progress.label)"
             button.setAccessibilityLabel(button.toolTip)
         } else {
             button.image=NSImage(systemSymbolName:"graduationcap.fill",accessibilityDescription:"KLAP 열기")
-            button.title="";button.toolTip="KLAP · 시간표와 강의";button.setAccessibilityLabel("KLAP 열기")
+            button.imagePosition = .imageOnly;button.title="";button.toolTip="KLAP · 시간표와 강의";button.setAccessibilityLabel("KLAP 열기")
         }
     }
     nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,willPresent notification:UNNotification,withCompletionHandler completionHandler:@escaping (UNNotificationPresentationOptions)->Void) { completionHandler([.banner,.sound]) }
