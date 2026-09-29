@@ -27,6 +27,14 @@ struct BridgeFailure: LocalizedError {
         guard FileManager.default.isExecutableFile(atPath: executable.path) else { throw BridgeFailure(message: "KLAPBridge가 없습니다. scripts/build.sh로 앱 전체를 빌드하세요.") }
         let task = Process()
         task.executableURL = executable
+        if Bundle.main.object(forInfoDictionaryKey:"KLAPDevelopmentBuild") as? Bool == true {
+            var environment=ProcessInfo.processInfo.environment
+            let home=FileManager.default.homeDirectoryForCurrentUser
+            environment["KLAP_CONFIG_DIR"]=home.appendingPathComponent("Library/Application Support/KLAP-Dev").path
+            environment["KLAP_CACHE_DIR"]=home.appendingPathComponent("Library/Caches/KLAP-Dev").path
+            environment["KLAP_KEYRING_SERVICE"]="klap-dev"
+            task.environment=environment
+        }
         let input = Pipe(), output = Pipe()
         task.standardInput = input
         task.standardOutput = output
