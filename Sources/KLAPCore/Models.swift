@@ -61,7 +61,24 @@ public struct NoticeRow: Codable, Identifiable {
     public let Notice: Notice
     public var id: String { self.ID }
 }
-public struct Notice: Codable { public let Title: String }
+public struct Notice: Codable {
+    public let Title: String
+    public let Author: String?
+    public let Registered: String?
+    public let Top: Bool?
+}
+public struct NoticeDetailResult: Decodable {
+    public let ID: String
+    public let DetailURL: String
+    public let Detail: NoticeContent
+}
+public struct NoticeContent: Decodable {
+    public let Title: String
+    public let ContentText: String
+    public let Author: String?
+    public let Registered: String?
+    public let Attachment: String?
+}
 public struct Snapshot: Codable {
     public var timetable: Timetable?
     public var lectures: [LectureItem]?

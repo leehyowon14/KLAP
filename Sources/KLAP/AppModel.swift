@@ -7,6 +7,14 @@ import KLAPCore
 @MainActor final class AppModel: ObservableObject {
     @Published var loggedOut = UserDefaults.standard.bool(forKey:"loggedOut")
     @Published var requestedLecture: String?
+    @Published var noticeDetail: NoticeDetailResult?
+    func loadNotice(_ id: String) async {
+        guard !busy else { return }
+        noticeDetail = nil
+        await perform(["Command":"notice-detail", "ID":id]) { [self] event in
+            if event.kind == "result" { noticeDetail = try event.decode(NoticeDetailResult.self) }
+        }
+    }
     @Published var snapshot = Snapshot()
     @Published var busy = false
     @Published var pendingDecisions: [String:String] = [:]

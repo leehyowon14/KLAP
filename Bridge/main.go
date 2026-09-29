@@ -54,6 +54,12 @@ func main() {
 		defer cancel()
 	}
 	switch r.Command {
+	case "notice-detail":
+		var v app.NoticeDetailResult
+		v, err = s.NoticeDetail(ctx, r.ID, app.UserOption{})
+		if err == nil {
+			emit("result", v)
+		}
 	case "auth":
 		err = s.Authenticate(ctx, r.StudentID, r.Password)
 		if err == nil {
