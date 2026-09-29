@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 type lectureDownloader interface {
@@ -37,9 +38,17 @@ func runDownloads(ctx context.Context, service lectureDownloader, r request, use
 		return fmt.Errorf("저장 폴더를 선택해 주세요")
 	}
 	var mu sync.Mutex
+	lastProgress := map[string]time.Time{}
+	lastStage := map[string]app.LectureTransferStage{}
 	value, err := service.DownloadAllLectures(ctx, app.LectureDownloadAllOptions{User: user, Dir: r.Directory, Concurrency: downloadConcurrency(r.Concurrency), Adaptive: r.Adaptive, LectureIDs: ids, OnProgress: func(p app.LectureDownloadProgress) {
 		mu.Lock()
 		defer mu.Unlock()
+		now := time.Now()
+		if p.Stage == app.LectureStageDownload && lastStage[p.Lecture.ID] == p.Stage && (p.TotalBytes <= 0 || p.Bytes < p.TotalBytes) && now.Sub(lastProgress[p.Lecture.ID]) < 200*time.Millisecond {
+			return
+		}
+		lastProgress[p.Lecture.ID] = now
+		lastStage[p.Lecture.ID] = p.Stage
 		message := ""
 		if p.Err != nil {
 			message = p.Err.Error()
