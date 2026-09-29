@@ -46,7 +46,7 @@ struct DashboardView: View {
                         CourseInformationView(model:model)
                         Button {showAttendance=true} label: {
                             HStack(spacing:10) {
-                                Image(systemName:"checkmark.circle").font(.title3).foregroundStyle(Theme.accent)
+                                Image(systemName:"checkmark.circle").font(.title3).foregroundStyle(.secondary)
                                 VStack(alignment:.leading,spacing:3) {
                                     Text("출석 현황").font(.callout.weight(.semibold))
                                     Text("이 과목의 주차별 출석 확인").font(.caption).foregroundStyle(.secondary)
