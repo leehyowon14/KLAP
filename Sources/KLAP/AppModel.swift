@@ -18,6 +18,9 @@ import KLAPCore
     @Published var downloadAdaptive = UserDefaults.standard.object(forKey:"downloadAdaptive") as? Bool ?? true {
         didSet {UserDefaults.standard.set(downloadAdaptive,forKey:"downloadAdaptive")}
     }
+    @Published var downloadLocale=UserDefaults.standard.string(forKey:"downloadLocale") ?? "ko-KR" {
+        didSet {UserDefaults.standard.set(downloadLocale,forKey:"downloadLocale")}
+    }
     @Published var downloadTranscribe=UserDefaults.standard.bool(forKey:"downloadTranscribe") {
         didSet {UserDefaults.standard.set(downloadTranscribe,forKey:"downloadTranscribe")}
     }

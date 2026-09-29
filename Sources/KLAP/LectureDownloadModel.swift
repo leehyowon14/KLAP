@@ -35,7 +35,7 @@ extension AppModel {
         var received=false
         var failure:String?
         do {
-            try await downloadBridge.run(["Command":"lecture-download","IDs":pending,"Directory":LectureDownloadLocation.root(in:directory).path,"ExpectedAccount":account,"Concurrency":downloadMaximum,"Adaptive":downloadAdaptive,"Transcribe":downloadTranscribe,"Locale":"ko-KR"]) { [self] event in
+            try await downloadBridge.run(["Command":"lecture-download","IDs":pending,"Directory":LectureDownloadLocation.root(in:directory).path,"ExpectedAccount":account,"Concurrency":downloadMaximum,"Adaptive":downloadAdaptive,"Transcribe":downloadTranscribe,"Locale":downloadLocale]) { [self] event in
                 do {
                     if event.kind == "error" {failure=event.error ?? "다운로드 실패"}
                     if event.kind == "transcript-progress" {downloadState.apply(try event.decode(LectureTranscriptProgressData.self))}
