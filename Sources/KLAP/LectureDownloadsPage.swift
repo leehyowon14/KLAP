@@ -20,6 +20,19 @@ struct LectureDownloadsPage:View {
             if model.downloadDirectory == nil {
                 Button("설정에서 저장 폴더 선택") {model.showDownloads=false;model.showSettings=true}
             }
+            if #available(macOS 26.0, *) {
+                HStack(spacing:16) {
+                    Toggle("다운로드 후 전사",isOn:$model.downloadTranscribe).toggleStyle(.switch).controlSize(.small)
+                    Group {
+                        Picker("언어",selection:$model.downloadLocale) {
+                            Text("한국어").tag("ko-KR")
+                            Text("영어").tag("en-US")
+                            Text("일본어").tag("ja-JP")
+                            Text("중국어").tag("zh-CN")
+                        }.frame(maxWidth:180)
+                    }
+                }.disabled(model.downloadState.running)
+            }
             if model.downloadState.running {DownloadProgressView(model:model)}
             HStack(spacing:12) {
                 Button("전체 선택") {model.downloadSelection=Set(model.downloadChoices.map(\.id)).subtracting(model.downloadExisting)}
@@ -48,26 +61,42 @@ struct LectureDownloadsPage:View {
         }.buttonStyle(FormButtonStyle(compact:true))
     }
     private func downloadRow(_ item:LectureItem)->some View {
-        VStack(alignment:.leading,spacing:7) {
-            Toggle(isOn:Binding(get:{model.downloadSelection.contains(item.id)},set:{selected in if selected {model.downloadSelection.insert(item.id)} else {model.downloadSelection.remove(item.id)}})) {
-                Text(item.row.Lecture.Title).font(.callout).fixedSize(horizontal:false,vertical:true)
-            }.toggleStyle(.checkbox).disabled(model.downloadState.running || model.downloadScanning || model.downloadExisting.contains(item.id))
-            if let transcript=model.downloadState.transcripts[item.id] {
-                Text(transcript.Stage == "transcribed" ? "전사 완료" : transcript.Stage == "transcript-error" ? "전사 실패: \(transcript.Error)" : model.downloadState.running ? "전사 중…" : "전사 중단됨").font(.caption).foregroundStyle(.secondary)
+        let state=model.downloadState.rows[item.id]
+        let downloaded=model.downloadExisting.contains(item.id) || state?.finished == true
+        let path=state?.finished == true ? state?.path : model.downloadPaths[item.id]
+        return VStack(alignment:.leading,spacing:8) {
+            HStack(spacing:10) {
+                if downloaded || model.downloadState.running {
+                    Text(item.row.Lecture.Title).font(.callout.weight(.medium)).fixedSize(horizontal:false,vertical:true)
+                } else {
+                    Toggle(isOn:Binding(get:{model.downloadSelection.contains(item.id)},set:{selected in if selected {model.downloadSelection.insert(item.id)} else {model.downloadSelection.remove(item.id)}})) {
+                        Text(item.row.Lecture.Title).font(.callout.weight(.medium)).fixedSize(horizontal:false,vertical:true)
+                    }.toggleStyle(.checkbox).disabled(model.downloadScanning)
+                }
+                Spacer(minLength:8)
+                if downloaded {
+                    if #available(macOS 26.0, *),!model.downloadTranscribed.contains(item.id),model.downloadState.transcripts[item.id]?.Stage != "transcribed" {
+                        Button("전사하기") {Task {await model.transcribeLecture(item.id)}}.buttonStyle(.borderless).font(.caption).disabled(model.downloadState.running)
+                    }
+                }
+                if downloaded,let path {
+                    Button {NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath:path)])} label:{Image(systemName:"folder")}
+                        .buttonStyle(.plain).frame(width:28,height:28).help("Finder에서 보기").accessibilityLabel("Finder에서 보기")
+                }
             }
-            if model.downloadExisting.contains(item.id) {Label("다운로드됨",systemImage:"checkmark.circle").font(.caption).foregroundStyle(.secondary)}
-            if let state=model.downloadState.rows[item.id] {
-                HStack {
-                    Text(state.label).font(.caption).foregroundStyle(state.stage == "error" ? Color.red : Color.secondary)
-                    Spacer()
-                    if state.stage == "download" {Text(String(format:"%.1f MB/s",state.speed/1_000_000)).font(.caption).monospacedDigit()}
-                    if state.total>0 {Text("\(ByteCountFormatter.string(fromByteCount:state.bytes,countStyle:.file)) / \(ByteCountFormatter.string(fromByteCount:state.total,countStyle:.file))").font(.caption).foregroundStyle(.secondary)}
-                    if let path=state.path,state.finished {Button("Finder에서 보기") {NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath:path)])}.font(.caption)}
+            HStack(spacing:8) {
+                if downloaded {Label("다운로드됨",systemImage:"checkmark.circle")}
+                else if let state,state.stage != "cancelled" {Text(state.label).foregroundStyle(state.stage == "error" ? Color.red : Color.secondary).help(state.error ?? "")}
+                if let transcript=model.downloadState.transcripts[item.id],transcript.Stage != "cancelled" {
+                    if downloaded {Text("·")}
+                    Text(transcript.Stage == "cancelled" ? "전사 취소됨" : transcript.Stage == "transcribed" ? "전사 완료" : transcript.Stage == "transcript-error" ? "전사 실패" : "전사 중…")
+                    if !transcript.Error.isEmpty {Image(systemName:"info.circle").help(transcript.Error).accessibilityLabel(transcript.Error)}
                 }
-                if state.stage == "download" {
-                    if let fraction=state.fraction {ProgressView(value:fraction)} else {ProgressView().controlSize(.small)}
-                }
-                if let error=state.error {Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)}
+                Spacer()
+                if state?.stage == "download",let fraction=state?.fraction {Text("\(Int(fraction*100))%").monospacedDigit()}
+            }.font(.caption).foregroundStyle(.secondary)
+            if state?.stage == "download" {
+                if let fraction=state?.fraction {ProgressView(value:fraction)} else {ProgressView().controlSize(.small)}
             }
         }.padding(12).frame(maxWidth:.infinity,alignment:.leading).background(Theme.surface,in:RoundedRectangle(cornerRadius:12))
     }
