@@ -24,6 +24,8 @@ import KLAPCore
     @Published var downloadTranscribe=UserDefaults.standard.bool(forKey:"downloadTranscribe") {
         didSet {UserDefaults.standard.set(downloadTranscribe,forKey:"downloadTranscribe")}
     }
+    @Published var downloadTranscribed:Set<String>=[]
+    @Published var downloadPaths:[String:String]=[:]
     @Published var downloadExisting:Set<String>=[]
     @Published var downloadScanning=false
     let downloadBridge=BridgeClient()
@@ -144,7 +146,7 @@ import KLAPCore
     func logout() {
         guard !downloadState.running,!busy else { return }
         contentNotifications.clearDelivered()
-        downloadState=LectureDownloadState();downloadChoices=[];downloadSelection=[];downloadExisting=[];downloadAccount=nil;showDownloads=false
+        downloadState=LectureDownloadState();downloadChoices=[];downloadSelection=[];downloadExisting=[];downloadPaths=[:];downloadTranscribed=[];downloadAccount=nil;showDownloads=false
         loggedOut=true
         UserDefaults.standard.set(true,forKey:"loggedOut")
         autoSync=false
