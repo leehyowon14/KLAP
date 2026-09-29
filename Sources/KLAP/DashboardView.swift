@@ -25,6 +25,7 @@ struct DashboardView: View {
                 Button { model.showDownloads=false;showAcademic=false;showAttendance=false;showChanges=false;model.showSettings.toggle() } label: { Image(systemName:"gearshape") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.onboarding).help("설정").accessibilityLabel("설정")
                 }
             }
+            if model.downloadState.running && !model.showDownloads {DownloadProgressView(model:model)}
             ScrollView {
                 VStack(alignment:.leading,spacing:12) {
                     if model.onboarding { OnboardingView(model:model,setup:model.setup) }

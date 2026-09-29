@@ -24,7 +24,10 @@ import KLAPCore
         item.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])
         updateIcon(nil)
         panel = MenuPanel(model:model)
-        model.$progress.sink { [weak self] progress in self?.updateIcon(progress) }.store(in:&subscriptions)
+        Publishers.CombineLatest(model.$progress,model.$downloadState).sink { [weak self] progress,download in
+            self?.updateIcon(progress ?? (download.running ? StudyProgress(percent:download.fraction*100,current:download.completed,total:download.expected.count) : nil))
+            if download.running {self?.item.button?.toolTip="KLAP · 다운로드 \(download.completed)/\(download.expected.count) · \(download.speedLabel)"}
+        }.store(in:&subscriptions)
         UNUserNotificationCenter.current().delegate = self
         model.reveal = { [weak self] in self?.show() }
         if !ProcessInfo.processInfo.arguments.contains("--smoke-test") {
@@ -32,14 +35,14 @@ import KLAPCore
             InstallationNotice.showIfNeeded { [weak self] in
                 guard let self else {return}
                 self.model.start()
-                self.model.updater.observeActivity(Publishers.CombineLatest3(self.model.$busy,self.model.$studying,self.model.$onboarding).map {$0 || $1 || $2}.eraseToAnyPublisher())
+                self.model.updater.observeActivity(Publishers.CombineLatest4(self.model.$busy,self.model.$studying,self.model.$onboarding,self.model.$downloadState).map {$0 || $1 || $2 || $3.running}.eraseToAnyPublisher())
                 self.model.updater.start()
                 if !loginLaunch {DispatchQueue.main.async {self.show()}}
             }
         }
     }
 
-    func applicationWillTerminate(_ notification: Notification) { if didInitializeModel { model.cancel() } }
+    func applicationWillTerminate(_ notification: Notification) { if didInitializeModel { model.cancel();model.cancelDownloads() } }
     @objc private func toggle() {
         guard let item, let panel else { return }
         if NSApp.currentEvent?.type == .rightMouseUp, let button=item.button {
