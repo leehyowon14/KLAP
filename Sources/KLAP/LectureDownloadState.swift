@@ -52,7 +52,10 @@ struct LectureDownloadState {
     var speedLabel:String {String(format:"%.1f MB/s",rows.values.filter{$0.stage == "download"}.reduce(0){$0+$1.speed}/1_000_000)}
     var completed:Int {rows.values.filter(\.finished).count}
     var retryIDs:[String] {expected.filter{rows[$0]?.stage == "error" || rows[$0]?.stage == "cancelled"}}
-    mutating func apply(_ value:LectureTranscriptProgressData) {if rows[value.ID] != nil {transcripts[value.ID]=value}}
+    mutating func apply(_ value:LectureTranscriptProgressData) {
+        guard rows[value.ID] != nil else{return}
+        transcripts[value.ID]=cancelling && value.Stage == "transcript-error" ? LectureTranscriptProgressData(ID:value.ID,Stage:"cancelled",Path:value.Path,Error:"") : value
+    }
     mutating func begin(_ ids:[String]) {
         expected=Array(NSOrderedSet(array:ids)) as? [String] ?? []
         rows=Dictionary(uniqueKeysWithValues:expected.map{($0,LectureDownloadRow())})
@@ -69,13 +72,17 @@ struct LectureDownloadState {
             } else {row.speed=0;row.sampleTime=now;row.sampleBytes=progress.Bytes}
             rows[progress.ID]=row
         }
-        rows[progress.ID]?.stage=progress.Stage
+        rows[progress.ID]?.stage=cancelling && progress.Stage == "error" ? "cancelled" : progress.Stage
         rows[progress.ID]?.bytes=max(0,progress.Bytes)
         rows[progress.ID]?.total=max(0,progress.TotalBytes)
-        rows[progress.ID]?.error=progress.Error.isEmpty ? nil : progress.Error
+        rows[progress.ID]?.error=cancelling || progress.Error.isEmpty ? nil : progress.Error
     }
     mutating func apply(_ results:[LectureDownloadResultData]) {
         for result in results where rows[result.ID] != nil {
+            if cancelling && !result.Error.isEmpty {
+                if rows[result.ID]?.finished != true && rows[result.ID]?.stage != "error" {rows[result.ID]?.stage="cancelled";rows[result.ID]?.error=nil}
+                continue
+            }
             rows[result.ID]=LectureDownloadRow(stage:result.Error.isEmpty && !result.Path.isEmpty ? (result.Skipped ? "skip" : "done") : "error",bytes:max(0,result.Bytes),total:max(0,result.Bytes),path:result.Path.isEmpty ? nil : result.Path,error:result.Error.isEmpty ? nil : result.Error)
         }
     }

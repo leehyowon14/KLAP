@@ -51,3 +51,15 @@ for base in ["/Users/example/Downloads","/tmp/한글 폴더","/tmp/base/../선�
     precondition(root.appendingPathComponent("자료구조/Video").path==selected.standardizedFileURL.path+"/KLAP/자료구조/Video")
 }
 print("Selected base folder and KLAP/course/Video path checks passed")
+
+state.begin(["finished","active","failed"])
+state.apply(.init(ID:"finished",Stage:"done",Bytes:10,TotalBytes:10,Error:"",Path:"/tmp/finished.mp4"))
+state.apply(.init(ID:"failed",Stage:"error",Bytes:0,TotalBytes:0,Error:"network failure"))
+state.cancelling=true
+state.apply(.init(ID:"active",Stage:"error",Bytes:5,TotalBytes:10,Error:"terminated signal received"))
+state.apply(LectureTranscriptProgressData(ID:"finished",Stage:"transcript-error",Path:"",Error:"terminated signal received"))
+state.finish(error:"terminated",receivedResult:false)
+precondition(state.rows["active"]?.stage=="cancelled" && state.rows["active"]?.error==nil && state.failure==nil)
+precondition(state.rows["finished"]?.finished==true && state.rows["failed"]?.error=="network failure")
+precondition(state.transcripts["finished"]?.Stage=="cancelled" && state.transcripts["finished"]?.Error=="")
+print("Cancellation errors are neutral while earlier real failures and completed files remain intact")
