@@ -14,6 +14,7 @@ import KLAPCore
         didSet {UserDefaults.standard.set(newLectureNotifications,forKey:"newLectureNotifications");if newLectureNotifications {requestNotifications()}}
     }
     let updater = AppUpdater()
+    let loginItem = LoginItemController()
     @Published var boardPresentation: BoardPresentation?
     @Published var loggedOut = UserDefaults.standard.bool(forKey:"loggedOut")
     @Published var requestedLecture: String?

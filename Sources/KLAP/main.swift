@@ -30,7 +30,7 @@ import KLAPCore
         if !ProcessInfo.processInfo.arguments.contains("--smoke-test") { model.start()
             model.updater.observeActivity(Publishers.CombineLatest3(model.$busy,model.$studying,model.$onboarding).map {$0 || $1 || $2}.eraseToAnyPublisher())
             model.updater.start() }
-        if !ProcessInfo.processInfo.arguments.contains("--smoke-test") { DispatchQueue.main.async { [weak self] in self?.show() } }
+        if !ProcessInfo.processInfo.arguments.contains("--smoke-test") && !LoginLaunch.isLoginItem(NSAppleEventManager.shared().currentAppleEvent) { DispatchQueue.main.async { [weak self] in self?.show() } }
     }
     func applicationWillTerminate(_ notification: Notification) { if didInitializeModel { model.cancel() } }
     @objc private func toggle() {

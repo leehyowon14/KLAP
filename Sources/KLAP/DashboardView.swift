@@ -110,6 +110,8 @@ struct DashboardView: View {
             pageHeading("설정") { model.showSettings=false }
             VStack(alignment:.leading,spacing:14) {
                 Text("자동화").font(.headline)
+                LoginItemSettings(controller:model.loginItem)
+                Rectangle().fill(Theme.line).frame(height:1)
                 Toggle(isOn:$model.autoSync) {
                     VStack(alignment:.leading,spacing:4) {
                         Text("일정 자동 동기화").font(.callout.weight(.medium))
