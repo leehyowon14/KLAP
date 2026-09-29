@@ -18,12 +18,26 @@ enum Theme {
             tone(appearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua ? dark : light)
         })
     }
-    static let accent=pair(50,20)
-    static let canvas=pair(10,95)
-    static let surface=pair(5,90)
-    static let line=pair(20,60)
-    static let ink=pair(90,5)
-    static let warning=pair(70,10)
-    static let warningSurface=pair(10,80)
+    // Neutral application surfaces are independent of the course palette.
+    static func neutral(_ light:CGFloat,_ dark:CGFloat) -> Color {
+        Color(nsColor:NSColor(name:nil) { appearance in
+            NSColor(white:appearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua ? dark : light,alpha:1)
+        })
+    }
+    static let accent=Color.accentColor
+    static let canvas=neutral(0.92,0.12)
+    static let surface=neutral(0.96,0.18)
+    static let line=neutral(0.72,0.38)
+    static let ink=Color.primary
+    static let warning=Color(nsColor:NSColor(name:nil) { appearance in
+        appearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua
+            ? NSColor(srgbRed:1,green:0.83,blue:0.56,alpha:1)
+            : NSColor(srgbRed:0.43,green:0.20,blue:0.01,alpha:1)
+    })
+    static let warningSurface=Color(nsColor:NSColor(name:nil) { appearance in
+        appearance.bestMatch(from:[.darkAqua,.aqua]) == .darkAqua
+            ? NSColor(srgbRed:0.28,green:0.19,blue:0.08,alpha:1)
+            : NSColor(srgbRed:1,green:0.89,blue:0.73,alpha:1)
+    })
     static let tones:[Color] = [40,50,60,70].map { pair($0,$0) }
 }
