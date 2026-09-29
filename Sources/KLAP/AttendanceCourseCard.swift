@@ -25,10 +25,13 @@ struct AttendanceCourseCard:View {
                 if !row.Error.isEmpty {Text(row.Error).font(.caption).foregroundStyle(.red).padding(14)}
                 if row.days.isEmpty && row.Error.isEmpty {Text("등록된 출석 기록이 없습니다.").font(.caption).foregroundStyle(.secondary).padding(14)}
                 VStack(spacing:0) {
-                    ForEach(Array(row.days.enumerated()),id:\.offset) { index,day in
+                    ForEach(Array(row.weeks.enumerated()),id:\.offset) { index,week in
                         if index>0 {Divider().opacity(0.5)}
-                        HStack(alignment:.center,spacing:10) {
-                            Text("\(day.week)주").font(.system(size:11,weight:.medium)).foregroundStyle(.secondary).frame(width:28,alignment:.leading)
+                        HStack(alignment:.top,spacing:12) {
+                            Text("\(week.week)주차").font(.system(size:11,weight:.medium)).foregroundStyle(.secondary).frame(width:38,alignment:.leading).padding(.top,5)
+                            VStack(spacing:10) {
+                            ForEach(Array(week.days.enumerated()),id:\.offset) { _,day in
+                            HStack(spacing:8) {
                             Text(day.dateLabel).font(.system(size:12)).fixedSize(horizontal:false,vertical:true)
                             Spacer(minLength:4)
                             VStack(alignment:.trailing,spacing:4) {
@@ -42,7 +45,10 @@ struct AttendanceCourseCard:View {
                                     }.accessibilityElement(children:.combine)
                                 }
                             }
-                        }.padding(.vertical,10)
+                            }
+                            }
+                            }
+                        }.padding(.vertical,12)
                     }
                 }.padding(.horizontal,14).padding(.bottom,4)
             }

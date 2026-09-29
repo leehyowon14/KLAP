@@ -66,6 +66,30 @@ extension AttendanceCourseRow {
         }
         return result
     }
+    var weeks:[AttendanceWeek] {
+        let grouped=Dictionary(grouping:days,by: \.week)
+        return grouped.keys.sorted {
+            let left=Int($0.trimmingCharacters(in:.whitespaces))
+            let right=Int($1.trimmingCharacters(in:.whitespaces))
+            if let left,let right,left != right {return left<right}
+            if (left != nil) != (right != nil) {return left != nil}
+            return $0<$1
+        }.map { week in
+            let ordered=(grouped[week] ?? []).enumerated().sorted { a,b in
+                let left=attendanceDate(a.element.date),right=attendanceDate(b.element.date)
+                if let left,let right,left != right {return left<right}
+                if (left != nil) != (right != nil) {return left != nil}
+                return a.offset<b.offset
+            }.map { entry -> AttendanceDay in
+                var day=entry.element
+                day.slots=day.slots.enumerated().sorted {
+                    $0.element.Index == $1.element.Index ? $0.offset<$1.offset : $0.element.Index<$1.element.Index
+                }.map(\.element)
+                return day
+            }
+            return AttendanceWeek(week:week,days:ordered)
+        }
+    }
     var summary:String {
         let slots=(Sessions ?? []).flatMap{$0.Slots ?? []}
         let labels=["출석","결석","지각","조퇴","공결","미등록","확인 필요"]
@@ -75,16 +99,29 @@ extension AttendanceCourseRow {
         }.joined(separator:" · ")
     }
 }
-func attendanceDateLabel(_ raw:String)->String {
+struct AttendanceWeek {
+    let week:String
+    let days:[AttendanceDay]
+}
+func attendanceDate(_ raw:String)->Date? {
     let value=raw.trimmingCharacters(in:.whitespacesAndNewlines)
-    if value.isEmpty {return "날짜 미등록"}
-    let format = value.count == 8 ? "yyyyMMdd" : "yyyy-MM-dd"
     let parser=DateFormatter()
     parser.locale=Locale(identifier:"en_US_POSIX")
     parser.calendar=Calendar(identifier:.gregorian)
     parser.timeZone=TimeZone(secondsFromGMT:9*3600)
-    parser.dateFormat=format;parser.isLenient=false
-    guard let date=parser.date(from:value),parser.string(from:date)==value else {return value}
-    parser.locale=Locale(identifier:"ko_KR");parser.dateFormat="M월 d일 (E)"
-    return parser.string(from:date)
+    parser.dateFormat=value.count == 8 ? "yyyyMMdd" : "yyyy-MM-dd"
+    parser.isLenient=false
+    guard let date=parser.date(from:value),parser.string(from:date)==value else {return nil}
+    return date
+}
+func attendanceDateLabel(_ raw:String)->String {
+    let value=raw.trimmingCharacters(in:.whitespacesAndNewlines)
+    if value.isEmpty {return "날짜 미등록"}
+    guard let date=attendanceDate(value) else {return value}
+    let formatter=DateFormatter()
+    formatter.locale=Locale(identifier:"ko_KR")
+    formatter.calendar=Calendar(identifier:.gregorian)
+    formatter.timeZone=TimeZone(secondsFromGMT:9*3600)
+    formatter.dateFormat="M월 d일 (E)"
+    return formatter.string(from:date)
 }

@@ -26,3 +26,13 @@ precondition(course.days.count == 3 && course.days[0].slots.count == 2)
 precondition(course.days[0].slots[1].statusLabel == "결석")
 precondition(course.summary == "출석 1 · 결석 1 · 지각 1 · 미등록 1")
 print("Attendance formatting, grouping, mixed statuses and summary checks passed")
+let unsorted=AttendanceCourseRow(Index:1,Course:.init(Name:"정렬",Professor:""),Sessions:[
+    .init(Week:"10",Slots:[.init(Index:1,Status:"AT",Mark:"O",Date:"20261001")]),
+    .init(Week:"2",Slots:[.init(Index:2,Status:"AB",Mark:"X",Date:"20260910"),.init(Index:2,Status:"AT",Mark:"O",Date:"20260908"),.init(Index:1,Status:"LT",Mark:"L",Date:"20260908"),.init(Index:3,Status:"",Mark:"",Date:"bad")]),
+    .init(Week:"1",Slots:[.init(Index:1,Status:"AT",Mark:"O",Date:"20260901")])],Error:"")
+precondition(unsorted.weeks.map(\.week)==["1","2","10"])
+precondition(unsorted.weeks[1].days.map(\.date)==["20260908","20260910","bad"])
+precondition(unsorted.weeks[1].days[0].slots.map(\.Index)==[1,2])
+precondition(unsorted.weeks[1].days[0].slots.map(\.statusLabel)==["지각","출석"])
+precondition(unsorted.weeks.flatMap(\.days).flatMap(\.slots).count==6)
+print("Week grouping, numeric week order, chronological dates, slot order and record preservation passed")
