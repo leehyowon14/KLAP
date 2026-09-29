@@ -138,11 +138,13 @@ struct DashboardView: View {
 
             }.toggleStyle(.switch).controlSize(.small).padding(16)
                 .background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
+            NotificationSettings(model:model,service:model.contentNotifications)
             VStack(alignment:.leading,spacing:12) {
                 Text("등록 위치").font(.headline)
                 Text("시간표·학사일정은 캘린더에, 과제·강의 마감은 미리 알림에 등록합니다.").font(.caption).foregroundStyle(.secondary)
                 DestinationSettings(model:model,setup:model.setup)
             }.frame(maxWidth:.infinity,alignment:.leading).padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
+            UpdateSettings(updater:model.updater)
             VStack(alignment:.leading,spacing:12) {
                 Text("계정").font(.headline)
                 settingsRow(!model.loggedOut && model.snapshot.timetable != nil ? "계정 변경" : "계정 로그인",icon:"person.crop.circle") { model.showSettings=false;model.showLogin=true;model.selectedCourse=nil }
@@ -150,8 +152,6 @@ struct DashboardView: View {
                 Button("로그아웃",role:.destructive) { model.logout() }.buttonStyle(.plain).foregroundStyle(Theme.accent).disabled(model.busy)
                 Text("자동 갱신을 중단합니다. CLI 저장 계정과 기존 일정은 유지됩니다.").font(.caption).foregroundStyle(.secondary)
             }.frame(maxWidth:.infinity,alignment:.leading).padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
-            NotificationSettings(model:model,service:model.contentNotifications)
-            UpdateSettings(updater:model.updater)
         }.font(.callout)
     }
     private func settingsRow(_ title:String,icon:String,action:@escaping () -> Void) -> some View {
