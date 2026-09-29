@@ -20,10 +20,11 @@ struct AccountFieldStyle: ViewModifier {
 
 struct FormButtonStyle: ButtonStyle {
     var prominent = false
+    var compact = false
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.system(size:14,weight:.medium))
-            .padding(.horizontal,16).frame(minWidth:72,minHeight:44)
+        configuration.label.font(.system(size:compact ? 12 : 14,weight:.medium))
+            .padding(.horizontal,compact ? 12 : 16).frame(minWidth:compact ? 48 : 72,minHeight:compact ? 30 : 44)
             .foregroundStyle(prominent ? Color.white : Color.primary)
             .background(prominent ? Color.accentColor : Color.primary.opacity(0.07),in:RoundedRectangle(cornerRadius:9))
             .opacity(!isEnabled ? 0.4 : configuration.isPressed ? 0.7 : 1)
