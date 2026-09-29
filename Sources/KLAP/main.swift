@@ -1,48 +1,61 @@
 import AppKit
 import SwiftUI
+import Combine
+import UserNotifications
 import KLAPCore
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+@MainActor final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var item: NSStatusItem!
     private let popover = NSPopover()
+    private let model = AppModel()
+    private var subscriptions = Set<AnyCancellable>()
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(systemSymbolName: "graduationcap.fill", accessibilityDescription: "KLAP 열기")
+        item.isVisible = true
         item.button?.target = self
         item.button?.action = #selector(toggle)
         popover.behavior = .transient
-        popover.contentSize = NSSize(width: 520, height: 660)
-        popover.contentViewController = NSHostingController(rootView: ShellView())
+        popover.contentSize = NSSize(width:540,height:700)
+        popover.contentViewController = NSHostingController(rootView:DashboardView(model:model))
+        model.$progress.sink { [weak self] progress in self?.updateIcon(progress) }.store(in:&subscriptions)
+        UNUserNotificationCenter.current().delegate = self
+        model.reveal = { [weak self] in self?.show() }
+        model.start()
+        if model.onboarding { DispatchQueue.main.async { [weak self] in self?.show() } }
     }
-    @objc private func toggle() {
-        if popover.isShown { popover.performClose(nil) }
-        else if let button = item.button {
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            NSApp.activate(ignoringOtherApps: true)
+    func applicationWillTerminate(_ notification: Notification) { model.cancel() }
+    @objc private func toggle() { if popover.isShown {popover.performClose(nil)} else {show()} }
+    private func show() {
+        guard let button=item.button else {return}
+        popover.show(relativeTo:button.bounds,of:button,preferredEdge:.minY)
+        NSApp.activate(ignoringOtherApps:true)
+    }
+    private func updateIcon(_ progress:StudyProgress?) {
+        guard let button=item.button else {return}
+        if let progress {
+            let image=NSImage(size:NSSize(width:20,height:20),flipped:false) { rect in
+                NSColor.labelColor.withAlphaComponent(0.22).setStroke()
+                let background=NSBezierPath(ovalIn:NSRect(x:2,y:2,width:16,height:16));background.lineWidth=2;background.stroke()
+                NSColor.labelColor.setStroke()
+                let arc=NSBezierPath();arc.lineWidth=2.5;arc.lineCapStyle = .round
+                arc.appendArc(withCenter:NSPoint(x:10,y:10),radius:8,startAngle:90,endAngle:90-CGFloat(progress.fraction)*360,clockwise:true);arc.stroke()
+                return true
+            }
+            image.isTemplate=true;button.image=image;button.title=" \(progress.label)"
+            button.toolTip="KLAP · \(Int(progress.fraction*100))% · \(progress.label)"
+            button.setAccessibilityLabel(button.toolTip)
+        } else {
+            button.image=NSImage(systemSymbolName:"graduationcap.fill",accessibilityDescription:"KLAP 열기")
+            button.title="";button.toolTip="KLAP · 시간표와 강의";button.setAccessibilityLabel("KLAP 열기")
         }
     }
+    nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,willPresent notification:UNNotification,withCompletionHandler completionHandler:@escaping (UNNotificationPresentationOptions)->Void) { completionHandler([.banner,.sound]) }
+    nonisolated func userNotificationCenter(_ center:UNUserNotificationCenter,didReceive response:UNNotificationResponse,withCompletionHandler completionHandler:@escaping ()->Void) { Task { @MainActor in self.show();completionHandler() } }
 }
-
-struct ShellView: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack { Label("KLAP", systemImage: "graduationcap.fill").font(.title2.bold()); Spacer(); Text("나의 캠퍼스").foregroundStyle(.secondary) }
-            ScrollView { VStack(alignment: .leading, spacing: 12) {
-                Text("오늘의 수업과 할 일").font(.headline)
-                Text("KLAS에 연결하면 과목과 수강 상태가 여기에 표시됩니다.").foregroundStyle(.secondary)
-            }.frame(maxWidth: .infinity, alignment: .leading) }.frame(maxHeight: .infinity)
-            Divider()
-            Text("주간 시간표").font(.headline)
-            HStack { ForEach(["월", "화", "수", "목", "금"], id: \.self) { day in Text(day).frame(maxWidth: .infinity) } }.foregroundStyle(.secondary)
-            Text("연결된 시간표가 없습니다").foregroundStyle(.secondary).frame(maxWidth: .infinity).frame(height: 260).background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
-            Divider()
-            HStack { Text("메뉴바에서 실행 중").font(.caption).foregroundStyle(.secondary); Spacer(); Button("종료") { NSApp.terminate(nil) } }
-        }.padding(20).frame(width: 520, height: 660)
-    }
+MainActor.assumeIsolated {
+ let app=NSApplication.shared
+ let delegate=AppDelegate()
+ app.delegate=delegate
+ app.run()
 }
-
-let app = NSApplication.shared
-let delegate = AppDelegate()
-app.delegate = delegate
-app.run()
