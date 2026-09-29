@@ -9,7 +9,18 @@ import KLAPCore
     @Published var downloadChoices:[LectureItem]=[]
     @Published var downloadSelection:Set<String>=[]
     @Published var downloadState=LectureDownloadState()
-    @Published var downloadDirectory:URL?
+    @Published var downloadDirectory:URL? = UserDefaults.standard.string(forKey:"downloadRoot").map {URL(fileURLWithPath:$0)} {
+        didSet {UserDefaults.standard.set(downloadDirectory?.path,forKey:"downloadRoot")}
+    }
+    @Published var downloadMaximum = max(1,min(8,UserDefaults.standard.object(forKey:"downloadMaximum") as? Int ?? 6)) {
+        didSet {UserDefaults.standard.set(downloadMaximum,forKey:"downloadMaximum")}
+    }
+    @Published var downloadAdaptive = UserDefaults.standard.object(forKey:"downloadAdaptive") as? Bool ?? true {
+        didSet {UserDefaults.standard.set(downloadAdaptive,forKey:"downloadAdaptive")}
+    }
+    @Published var downloadTranscribe=UserDefaults.standard.bool(forKey:"downloadTranscribe") {
+        didSet {UserDefaults.standard.set(downloadTranscribe,forKey:"downloadTranscribe")}
+    }
     var downloadAccount:String?
     let attachments = AttachmentManager()
     let contentNotifications = ContentNotificationService()
@@ -126,7 +137,7 @@ import KLAPCore
     func logout() {
         guard !busy else { return }
         contentNotifications.clearDelivered()
-        downloadState=LectureDownloadState();downloadChoices=[];downloadSelection=[];downloadDirectory=nil;downloadAccount=nil;showDownloads=false
+        downloadState=LectureDownloadState();downloadChoices=[];downloadSelection=[];downloadAccount=nil;showDownloads=false
         loggedOut=true
         UserDefaults.standard.set(true,forKey:"loggedOut")
         autoSync=false

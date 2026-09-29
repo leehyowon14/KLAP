@@ -169,6 +169,7 @@ struct DashboardView: View {
                 Text("시간표·학사일정은 캘린더에, 과제·강의 마감은 미리 알림에 등록합니다.").font(.caption).foregroundStyle(.secondary)
                 DestinationSettings(model:model,setup:model.setup)
             }.frame(maxWidth:.infinity,alignment:.leading).padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
+            DownloadSettings(model:model)
             UpdateSettings(updater:model.updater)
             VStack(alignment:.leading,spacing:12) {
                 Text("계정").font(.headline)
