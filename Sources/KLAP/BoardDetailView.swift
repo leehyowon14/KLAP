@@ -27,7 +27,7 @@ struct BoardDetailView: View {
                         Text(boardMetadata(detail.Detail.Author,detail.Detail.Registered)).font(.caption).foregroundStyle(.secondary)
                         Divider()
                         Text(LinkedBody.attributed(detail.Detail.ContentText.isEmpty ? "본문이 없습니다." : detail.Detail.ContentText)).lineSpacing(5).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
-                        if let url=originalURL { Link("KLAS에서 원문 보기 ↗",destination:url).font(.caption) }
+                        if let url=originalURL { Link("KLAS에서 원문 보기 ↗",destination:url).font(.caption).buttonStyle(.plain) }
                         Divider()
                         HStack { Label("첨부파일",systemImage:"paperclip").font(.headline); Text("\(detail.Files?.count ?? 0)").foregroundStyle(.secondary) }
                         if let error=detail.FilesError, !error.isEmpty {
@@ -70,7 +70,8 @@ struct BoardDetailView: View {
                     }
                 }.frame(maxWidth:.infinity,alignment:.leading)
             }
-        }.padding(20).frame(width:460,height:560).background(Theme.surface)
+        }.buttonStyle(FormButtonStyle(compact:true)).foregroundStyle(Theme.ink)
+            .padding(20).frame(width:460,height:560).background(Theme.surface)
             .task { if detail == nil { await load() } }
     }
     private var originalURL:URL? {
