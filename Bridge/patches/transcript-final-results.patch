@@ -1,0 +1,11 @@
+--- a/bridges/macos/Sources/SpeechCore/Transcript.swift
++++ b/bridges/macos/Sources/SpeechCore/Transcript.swift
+@@ -94,7 +94,7 @@
+     SpeechTranscriber(
+         locale: locale,
+         transcriptionOptions: [],
+-        reportingOptions: [.volatileResults],
++        reportingOptions: [],
+         attributeOptions: []
+     )
+ }
