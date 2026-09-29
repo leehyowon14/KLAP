@@ -4,6 +4,18 @@ import Sparkle
 
 MainActor.assumeIsolated {
     _ = NSApplication.shared
+    let root=URL(fileURLWithPath:CommandLine.arguments[1])
+    let running=Bundle(url:root.appendingPathComponent("AppTranslocation/test/KLAP.app"))!
+    let original=root.appendingPathComponent("original.app")
+    let selected=try! UpdateTarget.resolve(running:running,original:{_ in original},installed:{_ in true})
+    precondition(selected.bundleURL == original)
+    precondition(try! UpdateTarget.resolve(running:Bundle.main,original:{_ in preconditionFailure()}).bundleURL == Bundle.main.bundleURL)
+    for name in ["tampered.app","different.app","unsigned.app","missing.app","AppTranslocation/test/KLAP.app"] {
+        do { _=try UpdateTarget.resolve(running:running,original:{_ in root.appendingPathComponent(name)},installed:{_ in true});fatalError("Accepted invalid target: \(name)") } catch {}
+    }
+    do {_=try UpdateTarget.resolve(running:running,original:{_ in nil});fatalError("Accepted unknown origin")} catch {}
+    do {_=try UpdateTarget.resolve(running:running,original:{_ in original},installed:{_ in false});fatalError("Accepted external origin")} catch {}
+    print("Original target, unknown origin, external location, signature tamper and version mismatch checks passed")
     let service=AppUpdater()
     let activity=CurrentValueSubject<Bool,Never>(false)
     service.observeActivity(activity.eraseToAnyPublisher())
