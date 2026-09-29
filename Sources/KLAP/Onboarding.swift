@@ -20,19 +20,18 @@ import KLAPCore
     @Published var newReminder = "KLAP 할 일"
     private let store = EKEventStore()
     var ready: Bool { calendarAllowed && reminderAllowed && !loading }
-    func requestAccess() async {
+    func requestAccess(request:Bool = true) async {
         guard !loading else { return }
         loading = true; error = nil
         defer { loading = false }
-        var failures:[String]=[]
-        do {
-            if #available(macOS 14.0, *) { calendarAllowed = try await store.requestFullAccessToEvents() }
-            else { calendarAllowed = try await store.requestAccess(to:.event) }
-        } catch { calendarAllowed=false;failures.append("캘린더: " + error.localizedDescription) }
-        do {
-            if #available(macOS 14.0, *) { reminderAllowed = try await store.requestFullAccessToReminders() }
-            else { reminderAllowed = try await store.requestAccess(to:.reminder) }
-        } catch { reminderAllowed=false;failures.append("미리 알림: " + error.localizedDescription) }
+        calendarAllowed=await EventPermission.allowed(status:EKEventStore.authorizationStatus(for:.event),request:request) {
+            if #available(macOS 14.0, *) {return try await store.requestFullAccessToEvents()}
+            return try await store.requestAccess(to:.event)
+        }
+        reminderAllowed=await EventPermission.allowed(status:EKEventStore.authorizationStatus(for:.reminder),request:request) {
+            if #available(macOS 14.0, *) {return try await store.requestFullAccessToReminders()}
+            return try await store.requestAccess(to:.reminder)
+        }
             let allEvents = calendarAllowed ? store.calendars(for:.event) : []
             let events = allEvents.filter(\.allowsContentModifications).map(\.title)
             let allLists = reminderAllowed ? store.calendars(for:.reminder) : []
@@ -48,10 +47,10 @@ import KLAPCore
             if !timetable.isEmpty && !calendars.contains(timetable) { timetable = "" }
             if !academic.isEmpty && !calendars.contains(academic) { academic = "" }
             if !reminder.isEmpty && !reminders.contains(reminder) { reminder = "" }
-        if !failures.isEmpty { error=failures.joined(separator:"\n") }
+
     }
-    func openPrivacySettings() {
-        NSWorkspace.shared.open(URL(string:"x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars")!)
+    func openPrivacySettings(reminders:Bool = false) {
+        NSWorkspace.shared.open(URL(string:"x-apple.systempreferences:com.apple.preference.security?"+(reminders ? "Privacy_Reminders" : "Privacy_Calendars"))!)
     }
 }
 
@@ -111,7 +110,10 @@ struct OnboardingView: View {
                     VStack(alignment:.leading,spacing:10) {
                         Button(setup.loading ? "권한 확인 중…" : "캘린더·미리 알림 접근 허용") {Task {await setup.requestAccess()}}
                             .buttonStyle(FormButtonStyle(prominent:true)).disabled(setup.loading)
-                        Button("시스템 권한 설정 열기") {setup.openPrivacySettings()}.buttonStyle(FormButtonStyle()).font(.caption)
+                        HStack {
+                            if !setup.calendarAllowed {Button("캘린더 권한 설정") {setup.openPrivacySettings()}}
+                            if !setup.reminderAllowed {Button("미리 알림 권한 설정") {setup.openPrivacySettings(reminders:true)}}
+                        }.buttonStyle(FormButtonStyle()).font(.caption)
                     }
                 } else {
                     DestinationFields(setup:setup)
@@ -137,6 +139,9 @@ struct OnboardingView: View {
             if setup.step != 0, let error=model.error {Text(error).font(.caption).foregroundStyle(.orange).textSelection(.enabled)}
             Button("나중에 설정") {model.skipSetup()}.buttonStyle(.plain).font(.callout).foregroundStyle(.secondary).padding(.vertical,8).contentShape(Rectangle()).disabled(model.busy || setup.loading)
         }.padding(.vertical,8).frame(maxWidth:.infinity,alignment:.leading)
+        .onReceive(NotificationCenter.default.publisher(for:NSApplication.didBecomeActiveNotification)) { _ in
+            if setup.step == 1 {Task {await setup.requestAccess(request:false)}}
+        }
     }
     private var title: String {
         ["학교 계정을 연결하세요", "일정을 등록할 곳을 선택하세요", "자동으로 관리할 준비가 됐어요"][setup.step]
