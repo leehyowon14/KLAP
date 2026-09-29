@@ -10,7 +10,19 @@ struct DownloadProgressView:View {
                 Text("\(model.downloadState.displayCurrent) / \(model.downloadState.displayTotal)").monospacedDigit()
                 Button(model.downloadState.cancelling ? "취소 중…" : "취소") {model.cancelDownloads()}.disabled(model.downloadState.cancelling)
             }.font(.callout.weight(.medium))
-            ProgressView(value:model.downloadState.displayFraction)
+            if model.downloadState.transcribing {
+                ProgressView(value:model.downloadState.transcriptFraction)
+            } else {
+                let activeIDs=model.downloadState.expected.filter {model.downloadState.rows[$0]?.stage == "download"}
+                if activeIDs.isEmpty {
+                    ProgressView(value:model.downloadState.fraction)
+                } else {
+                    ForEach(activeIDs,id:\.self) {id in
+                        ProgressView(value:model.downloadState.rows[id]?.fraction ?? 0)
+                            .accessibilityLabel("다운로드 진행상황")
+                    }
+                }
+            }
             if !model.downloadState.transcribing && !model.downloadState.transcriptQueue.isEmpty {
                 HStack {
                     Label("전사",systemImage:"waveform")
