@@ -43,3 +43,11 @@ precondition(state.transcripts.count==1 && state.rows["a"]?.stage=="download")
 state.begin([])
 precondition(state.fraction==0 && state.transcripts.isEmpty && state.active==0)
 print("Adaptive pause, aggregate progress, transcript isolation and empty queue checks passed")
+
+for base in ["/Users/example/Downloads","/tmp/한글 폴더","/tmp/base/../선택한 폴더"] {
+    let selected=URL(fileURLWithPath:base,isDirectory:true)
+    let root=LectureDownloadLocation.root(in:selected)
+    precondition(root.path==selected.standardizedFileURL.path+"/KLAP")
+    precondition(root.appendingPathComponent("자료구조/Video").path==selected.standardizedFileURL.path+"/KLAP/자료구조/Video")
+}
+print("Selected base folder and KLAP/course/Video path checks passed")
