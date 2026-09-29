@@ -48,9 +48,9 @@ for base in ["/Users/example/Downloads","/tmp/한글 폴더","/tmp/base/../선�
     let selected=URL(fileURLWithPath:base,isDirectory:true)
     let root=LectureDownloadLocation.root(in:selected)
     precondition(root.path==selected.standardizedFileURL.path+"/KLAP")
-    precondition(root.appendingPathComponent("자료구조/Video").path==selected.standardizedFileURL.path+"/KLAP/자료구조/Video")
+    precondition(root.appendingPathComponent("자료구조/Videos").path==selected.standardizedFileURL.path+"/KLAP/자료구조/Videos")
 }
-print("Selected base folder and KLAP/course/Video path checks passed")
+print("Selected base folder and KLAP/course/Videos path checks passed")
 
 state.begin(["finished","active","failed"])
 state.apply(.init(ID:"finished",Stage:"done",Bytes:10,TotalBytes:10,Error:"",Path:"/tmp/finished.mp4"))
