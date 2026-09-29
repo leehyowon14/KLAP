@@ -165,16 +165,35 @@ struct DashboardView: View {
         }
     }
     private var conflicts: some View {
-        VStack(alignment:.leading,spacing:16) {
-            Text("일정 변경 확인 · \(model.conflicts.count)개").font(.headline)
+        VStack(alignment:.leading,spacing:12) {
+            HStack {
+                Text("확인이 필요한 항목").font(.callout).foregroundStyle(.secondary)
+                Spacer()
+                Text("\(model.conflicts.count)개").font(.callout.weight(.semibold))
+            }
+            Text("기존 일정을 유지하거나 현재 KLAS 정보로 업데이트하세요.").font(.caption).foregroundStyle(.secondary)
             ForEach(model.conflicts) { conflict in
-                VStack(alignment:.leading) {
-                    Text(conflict.Title).font(.caption.bold());Text(conflict.Summary).font(.caption2)
-                    HStack { Button("기존 항목 유지") { Task {await model.resolveConflict(conflict.Key,decision:"keep")} };Button("KLAS 값 적용") {Task {await model.resolveConflict(conflict.Key,decision:"apply")}} }.disabled(model.busy && !model.studying)
-                    if let decision=model.pendingDecisions[conflict.Key] {
-                        Text("\(decision == "keep" ? "기존 항목 유지" : "KLAS 값 적용") 선택됨 · 수강 종료 후 반영").font(.caption).foregroundStyle(.secondary)
+                VStack(alignment:.leading,spacing:12) {
+                    Text(conflict.Title).font(.system(size:14,weight:.semibold)).fixedSize(horizontal:false,vertical:true)
+                    let prefix=conflict.Title + " · "
+                    let detail=conflict.Summary.hasPrefix(prefix) ? String(conflict.Summary.dropFirst(prefix.count)) : conflict.Summary
+                    if detail != conflict.Title && !detail.isEmpty {
+                        Label(detail,systemImage:"calendar").font(.callout).foregroundStyle(.secondary)
                     }
-                }
+                    Rectangle().fill(Theme.line).frame(height:0.5)
+                    HStack(spacing:10) {
+                        Button("기존 항목 유지") { Task {await model.resolveConflict(conflict.Key,decision:"keep")} }
+                            .buttonStyle(FormButtonStyle(compact:true))
+                        Spacer(minLength:0)
+                        Button("KLAS 값 적용") {Task {await model.resolveConflict(conflict.Key,decision:"apply")}}
+                            .buttonStyle(FormButtonStyle(prominent:true,compact:true))
+                    }.disabled(model.busy && !model.studying)
+                    if let decision=model.pendingDecisions[conflict.Key] {
+                        Label("\(decision == "keep" ? "기존 항목 유지" : "KLAS 값 적용") 선택됨 · 수강 종료 후 반영",systemImage:"clock")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }.padding(16).frame(maxWidth:.infinity,alignment:.leading)
+                    .background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
             }
         }
     }
