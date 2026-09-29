@@ -5,6 +5,7 @@ import Network
 import KLAPCore
 
 @MainActor final class AppModel: ObservableObject {
+    @Published var loggedOut = UserDefaults.standard.bool(forKey:"loggedOut")
     @Published var snapshot = Snapshot()
     @Published var busy = false
     @Published var studying = false
@@ -48,11 +49,21 @@ import KLAPCore
             }
         }
         network.start(queue: DispatchQueue(label: "KLAP.network"))
-        Task { if !onboarding { await refresh(); if autoSync { await sync() } } }
+        Task { if !onboarding && !loggedOut { await refresh(); if autoSync { await sync() } } }
     }
     func scheduledRefresh() {
-        guard !busy, !onboarding else { return }
-        Task { if !onboarding { await refresh(); if autoSync { await sync() } } }
+        guard !busy, !onboarding, !loggedOut else { return }
+        Task { if !onboarding && !loggedOut { await refresh(); if autoSync { await sync() } } }
+    }
+    func logout() {
+        guard !busy else { return }
+        loggedOut=true
+        UserDefaults.standard.set(true,forKey:"loggedOut")
+        autoSync=false
+        snapshot=Snapshot(); conflicts=[]; selectedCourse=nil
+        lastRefresh=nil; lastSync=nil; error=nil; progress=nil; studyTitle=""
+        showSettings=false; showLogin=false; onboarding=true; setup.step=0
+        message="로그아웃했습니다"
     }
     func skipSetup() {
         if !UserDefaults.standard.bool(forKey:"destinationsConfigured") { autoSync = false }
@@ -96,6 +107,8 @@ import KLAPCore
     }
     func refresh() async {
         guard !busy else { return }
+        loggedOut=false
+        UserDefaults.standard.set(false,forKey:"loggedOut")
         message = "수업과 강의를 불러오는 중…"
         var received = false
         await perform(["Command":"snapshot"]) { [self] event in
@@ -122,7 +135,7 @@ import KLAPCore
         return false
     }
     func sync(decisions: [String: String] = [:]) async {
-        guard !busy else { return }
+        guard !busy, !loggedOut else { return }
         guard UserDefaults.standard.bool(forKey: "destinationsConfigured") else { onboarding=true;setup.step=1;return }
         message = "캘린더와 미리 알림 동기화 중…"
         var succeeded = false

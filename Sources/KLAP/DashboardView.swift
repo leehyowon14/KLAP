@@ -23,11 +23,11 @@ struct DashboardView: View {
             ScrollView {
                 VStack(alignment:.leading,spacing:12) {
                     if model.onboarding { OnboardingView(model:model,setup:model.setup) }
+                    else if model.showSettings { settings }
                     else {
-            HStack { Text("주간 시간표").font(.headline);Spacer();if model.selectedCourse != nil { Button("전체 과목") { model.selectedCourse = nil }.font(.caption) } }
-            WeeklyTimetable(entries:model.snapshot.timetable?.Entries ?? []) { model.selectedCourse = $0 }
-            Divider().padding(.vertical,8)
-                    if model.showSettings { settings }
+                    HStack { Text("주간 시간표").font(.headline);Spacer();if model.selectedCourse != nil { Button("전체 과목") { model.selectedCourse = nil }.font(.caption) } }
+                    WeeklyTimetable(entries:model.snapshot.timetable?.Entries ?? []) { model.selectedCourse = $0 }
+                    Divider().padding(.vertical,8)
                     if model.showLogin { login }
                     if let error = model.error {
                         Label(error,systemImage:"exclamationmark.triangle").font(.caption).foregroundStyle(.orange).textSelection(.enabled)
@@ -71,15 +71,23 @@ struct DashboardView: View {
     }
     private var settings: some View {
         VStack(alignment:.leading,spacing:8) {
-            Text("설정").font(.headline)
+            HStack {
+                Button { model.showSettings=false } label: { Label("돌아가기",systemImage:"chevron.left") }
+                    .buttonStyle(FormButtonStyle())
+                Spacer()
+                Text("설정").font(.title2.bold())
+            }
+            Divider().padding(.vertical,8)
             Toggle("일정 자동 동기화 · 30분마다",isOn:$model.autoSync)
             Toggle("수강 알림",isOn:$model.notifications)
             Text("수업·학사일정은 캘린더에, 과제·강의 마감은 미리 알림에 동기화합니다. 앱 실행 및 잠자기 복귀 때도 갱신합니다.").font(.caption).foregroundStyle(.secondary)
             if let date=model.lastSync { Text("마지막 동기화 \(date.formatted())").font(.caption2) }
             Button("캘린더·목록 다시 선택") { model.onboarding=true;model.setup.step=1 }.disabled(model.busy)
-            Button("계정 로그인") { model.showLogin.toggle() }.disabled(model.busy)
+            Button("계정 로그인") { model.showSettings=false;model.showLogin=true }.disabled(model.busy)
+            Button("로그아웃",role:.destructive) { model.logout() }.disabled(model.busy)
+            Text("로그아웃하면 자동 갱신이 중단됩니다. CLI에 저장된 계정과 이미 등록한 일정은 유지됩니다.").font(.caption).foregroundStyle(.secondary)
             Text("현재 개발 버전은 KLAP-Cli의 계정·학기·동기화 설정을 공유합니다.").font(.caption2).foregroundStyle(.secondary)
-        }.font(.callout)
+        }.font(.callout).buttonStyle(FormButtonStyle())
     }
     private var studyProgress: some View {
         VStack(alignment:.leading,spacing:6) {
