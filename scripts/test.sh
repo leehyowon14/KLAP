@@ -31,6 +31,7 @@ skip_check() {
 
 run_check 'Core 모델과 경계값' swift run --build-system native KLAPCoreChecks
 run_check 'Bridge JSON 스트리밍 프로토콜' bash scripts/check-bridge-protocol.sh
+run_check 'Bridge 프로세스 수명과 취소' bash scripts/check-bridge-process.sh
 run_check '캘린더·미리 알림 권한 판단' bash scripts/check-permissions.sh
 run_check '로그인 항목 상태' bash scripts/check-login-item.sh
 run_check 'HTML 본문 로딩과 탐색 정책' bash scripts/check-html.sh

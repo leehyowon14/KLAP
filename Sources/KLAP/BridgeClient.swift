@@ -8,6 +8,12 @@ struct BridgeFailure: LocalizedError {
 
 @MainActor final class BridgeClient {
     private var process: Process?
+    private let executableURL: URL
+
+    init(executableURL: URL? = nil) {
+        self.executableURL=executableURL ?? Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/KLAPBridge")
+    }
+
     func cancel() {
         guard let process, process.isRunning else { return }
         process.terminate()
@@ -17,7 +23,7 @@ struct BridgeFailure: LocalizedError {
     }
     func run(_ request: [String: Any], receive: @escaping @MainActor (BridgeEvent) -> Void) async throws {
         guard process == nil else { throw BridgeFailure(message: "다른 작업이 실행 중입니다") }
-        let executable = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/KLAPBridge")
+        let executable = executableURL
         guard FileManager.default.isExecutableFile(atPath: executable.path) else { throw BridgeFailure(message: "KLAPBridge가 없습니다. scripts/build.sh로 앱 전체를 빌드하세요.") }
         let task = Process()
         task.executableURL = executable
