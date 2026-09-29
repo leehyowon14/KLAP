@@ -113,27 +113,37 @@ func main() {
 			emit("result", v)
 		}
 	case "snapshot":
-		result := map[string]any{}
+		users, accountErr := s.Users(ctx)
+		if accountErr != nil {
+			err = accountErr
+			break
+		}
+		user, account, accountErr := notificationAccount(users)
+		if accountErr != nil {
+			err = accountErr
+			break
+		}
+		result := map[string]any{"account": account}
 		problems := []string{}
-		table, e := s.Timetable(ctx, app.TimetableOptions{Refresh: true})
+		table, e := s.Timetable(ctx, app.TimetableOptions{User: user, Refresh: true})
 		if e != nil {
 			problems = append(problems, e.Error())
 		} else {
 			result["timetable"] = table
 		}
-		assignments, e := s.AssignmentList(ctx, app.AssignmentListOptions{Refresh: true})
+		assignments, e := s.AssignmentList(ctx, app.AssignmentListOptions{User: user, Refresh: true})
 		if e != nil {
 			problems = append(problems, e.Error())
 		} else {
 			result["assignments"] = assignments
 		}
-		notices, e := s.NoticeList(ctx, app.NoticeListOptions{Refresh: true})
+		notices, e := s.NoticeList(ctx, app.NoticeListOptions{User: user, Refresh: true})
 		if e != nil {
 			problems = append(problems, e.Error())
 		} else {
 			result["notices"] = notices
 		}
-		lectures, e := s.LectureList(ctx, app.LectureListOptions{Refresh: true})
+		lectures, e := s.LectureList(ctx, app.LectureListOptions{User: user, Refresh: true})
 		if e != nil {
 			problems = append(problems, e.Error())
 		} else {

@@ -70,3 +70,26 @@ func TestEmptyQueue(t *testing.T) {
 		t.Fatal("expected empty selection error")
 	}
 }
+
+func TestNotificationAccount(t *testing.T) {
+	rows := []app.UserRow{{User: app.User{StudentID: "inactive"}}, {User: app.User{StudentID: "active"}, Current: true}}
+	user, key, err := notificationAccount(rows)
+	if err != nil || user.StudentID != "active" || len(key) != 64 || key == "active" {
+		t.Fatal("wrong account")
+	}
+	_, again, _ := notificationAccount(rows)
+	if key != again {
+		t.Fatal("unstable identity")
+	}
+	rows[1].User.StudentID = "other"
+	_, other, _ := notificationAccount(rows)
+	if other == key {
+		t.Fatal("accounts collided")
+	}
+	if _, _, err := notificationAccount(nil); err == nil {
+		t.Fatal("missing current account accepted")
+	}
+	if _, _, err := notificationAccount([]app.UserRow{{Current: true}}); err == nil {
+		t.Fatal("empty account accepted")
+	}
+}
