@@ -50,7 +50,7 @@ struct DashboardView: View {
                 }.font(.caption2).help(model.message)
                 Spacer()
                 Button("동기화") { Task { await model.sync() } }.disabled(model.busy)
-                Menu { Button("KLAP 종료") { if model.studying { model.cancel() }; NSApp.terminate(nil) } } label: { Image(systemName:"ellipsis") }.menuStyle(.borderlessButton).frame(width:20)
+                Button { if model.studying { model.cancel() }; NSApp.terminate(nil) } label: { Label("종료", systemImage: "power") }.buttonStyle(.borderless).fixedSize().help("KLAP 종료").accessibilityLabel("KLAP 종료")
             }
         }.padding(18).frame(width:540,height:700)
         .alert("선택한 강의를 자동 수강할까요?",isPresented:$confirmStudy) {
