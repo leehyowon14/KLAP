@@ -26,7 +26,17 @@ MainActor.assumeIsolated {
             let source=try! makeFile(key)
             let download = { let saved=try! manager.save(key); precondition(FileManager.default.fileExists(atPath:saved.path));precondition(!FileManager.default.fileExists(atPath:source.path)) }
             try! manager.show(source,key:key,download:download)
-            drain();download();drain()
+            drain()
+            let window=app.windows.first { $0.isVisible && $0.toolbar?.identifier == "KLAP.preview" }!
+            precondition(window.subtitle.hasPrefix("PDF · "))
+            if i == 0, let path=ProcessInfo.processInfo.environment["KLAP_PREVIEW_SCREENSHOT"], let view=window.contentView?.superview,
+               let bitmap=view.bitmapImageRepForCachingDisplay(in:view.bounds) {
+                view.cacheDisplay(in:view.bounds,to:bitmap)
+                try! bitmap.representation(using:.png,properties:[:])!.write(to:URL(fileURLWithPath:path))
+            }
+            let item=window.toolbar!.items.first { $0.itemIdentifier.rawValue == "KLAP.preview.download" }!
+            precondition(app.sendAction(item.action!,to:item.target,from:item))
+            drain()
         }
         drain()
     }

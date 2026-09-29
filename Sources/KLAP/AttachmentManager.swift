@@ -1,16 +1,18 @@
 import AppKit
-import SwiftUI
 import Quartz
 import UniformTypeIdentifiers
 import KLAPCore
 
-@MainActor final class AttachmentManager: NSObject, NSWindowDelegate {
+@MainActor final class AttachmentManager: NSObject, NSWindowDelegate, NSToolbarDelegate {
     private var store: PreviewFileStore?
     private var startupError: Error?
     private var timer: Timer?
     private var observers: [NSObjectProtocol] = []
     private var previewWindow: NSWindow?
+    private var previewView: QLPreviewView?
     private var previewKey: String?
+    private var previewDownload: (() -> Void)?
+    private let downloadItemID = NSToolbarItem.Identifier("KLAP.preview.download")
     private let downloadsDirectory: URL?
     init(root: URL = FileManager.default.temporaryDirectory.appendingPathComponent("KLAP-previews",isDirectory:true), downloadsDirectory: URL? = nil) {
         self.downloadsDirectory = downloadsDirectory
@@ -46,23 +48,58 @@ import KLAPCore
         closePreview()
         try storage().opened(key)
         previewKey=key
-        let window=NSPanel(contentRect:NSRect(x:0,y:0,width:720,height:620),styleMask:[.titled,.closable,.resizable],backing:.buffered,defer:false)
+        let window=NSPanel(contentRect:NSRect(x:0,y:0,width:760,height:720),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
         window.title=url.lastPathComponent
         window.isReleasedWhenClosed=false
         window.delegate=self
-        window.contentView=NSHostingView(rootView:VStack(spacing:0) {
-            HStack { Text(url.lastPathComponent).lineLimit(1); Spacer(); Button(action:download) { Image(systemName:"arrow.down.to.line").frame(width:28,height:28) }.buttonStyle(.plain).help("다운로드").accessibilityLabel("다운로드") }.padding(12)
-            Divider()
-            QuickLookFile(url:url)
-        })
+        window.minSize=NSSize(width:520,height:420)
+        window.titlebarAppearsTransparent=true
+        window.toolbarStyle = .unified
+        window.backgroundColor = .windowBackgroundColor
+        let size=(try? url.resourceValues(forKeys:[.fileSizeKey]).fileSize).map { ByteCountFormatter.string(fromByteCount:Int64($0),countStyle:.file) }
+        window.subtitle=[url.pathExtension.uppercased(),size].compactMap{$0}.filter{!$0.isEmpty}.joined(separator:" · ")
+        let toolbar=NSToolbar(identifier:"KLAP.preview")
+        toolbar.delegate=self
+        toolbar.displayMode = .iconOnly
+        toolbar.allowsUserCustomization=false
+        window.titlebarSeparatorStyle = .none
+        window.toolbar=toolbar
+        previewDownload=download
+        let view=QLPreviewView(frame:window.contentLayoutRect,style:.compact)!
+        // This controller closes the view exactly once in windowWillClose.
+        view.shouldCloseWithWindow=false
+        view.autostarts=false
+        view.previewItem=url as NSURL
+        window.contentView=view
+        previewView=view
+        if let screen=NSScreen.main {
+            window.setContentSize(NSSize(width:min(760,screen.visibleFrame.width-80),height:min(720,screen.visibleFrame.height-100)))
+        }
         previewWindow=window
         window.center();window.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)
         scheduleCleanup()
     }
     func closePreview() { previewWindow?.close() }
     func windowWillClose(_ notification:Notification) {
+        previewView?.close()
+        previewView=nil
         if let key=previewKey { do { try storage().closed(key) } catch { NSLog("KLAP preview expiry persistence failed") } }
-        previewWindow=nil;previewKey=nil;scheduleCleanup()
+        previewWindow=nil;previewKey=nil;previewDownload=nil;scheduleCleanup()
+    }
+    func toolbarAllowedItemIdentifiers(_ toolbar:NSToolbar) -> [NSToolbarItem.Identifier] { [.flexibleSpace,downloadItemID] }
+    func toolbarDefaultItemIdentifiers(_ toolbar:NSToolbar) -> [NSToolbarItem.Identifier] { [.flexibleSpace,downloadItemID] }
+    func toolbar(_ toolbar:NSToolbar,itemForItemIdentifier identifier:NSToolbarItem.Identifier,willBeInsertedIntoToolbar flag:Bool) -> NSToolbarItem? {
+        guard identifier == downloadItemID else { return nil }
+        let item=NSToolbarItem(itemIdentifier:identifier)
+        item.label="다운로드"
+        item.toolTip="다운로드 폴더에 저장"
+        item.image=NSImage(systemSymbolName:"arrow.down.to.line",accessibilityDescription:"다운로드")
+        item.target=self;item.action=#selector(downloadPreview)
+        return item
+    }
+    @objc private func downloadPreview() {
+        let action=previewDownload
+        action?()
     }
     private func cleanExpired() { do { try store?.cleanup() } catch { NSLog("KLAP preview cleanup failed") }; scheduleCleanup() }
     private func scheduleCleanup() {
@@ -77,17 +114,4 @@ import KLAPCore
         guard let type=UTType(filenameExtension:ext) else { return false }
         return type.conforms(to:.pdf) || type.conforms(to:.image) || type.conforms(to:.text) || type.conforms(to:.movie) || type.conforms(to:.audio) || ["doc","docx","xls","xlsx","ppt","pptx","pages","numbers","key"].contains(ext)
     }
-}
-private struct QuickLookFile: NSViewRepresentable {
-    let url:URL
-    func makeNSView(context:Context) -> QLPreviewView {
-        let view=QLPreviewView(frame:.zero,style:.normal)!
-        // SwiftUI dismantling owns close; automatic window close would close it twice.
-        view.shouldCloseWithWindow=false
-        view.previewItem=url as NSURL
-        view.autostarts=false
-        return view
-    }
-    func updateNSView(_ view:QLPreviewView,context:Context) { }
-    static func dismantleNSView(_ view:QLPreviewView,coordinator:()) { view.close() }
 }
