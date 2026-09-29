@@ -13,6 +13,12 @@ import (
 )
 
 type request struct {
+	Kind              string
+	SubjectID         string
+	BoardNo           string
+	MasterNo          string
+	FileSN            string
+	Directory         string
 	TimetableName     string
 	AcademicName      string
 	ReminderName      string
@@ -56,6 +62,20 @@ func main() {
 		defer cancel()
 	}
 	switch r.Command {
+	case "board-list", "board-detail", "board-download":
+		opts := app.BoardOptions{Kind: r.Kind, TermValue: r.TermValue, SubjectID: r.SubjectID, BoardNo: r.BoardNo, MasterNo: r.MasterNo}
+		var value any
+		switch r.Command {
+		case "board-list":
+			value, err = s.BoardList(ctx, opts)
+		case "board-detail":
+			value, err = s.BoardDetail(ctx, opts)
+		case "board-download":
+			value, err = s.BoardDownload(ctx, opts, r.FileSN, r.Directory)
+		}
+		if err == nil {
+			emit("result", value)
+		}
 	case "syllabus":
 		var v app.SyllabusResult
 		v, err = s.Syllabus(ctx, app.SyllabusOptions{Selector: r.Selector, TermValue: r.TermValue})

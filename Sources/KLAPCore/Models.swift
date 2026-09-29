@@ -62,6 +62,8 @@ public struct NoticeRow: Codable, Identifiable {
     public var id: String { self.ID }
 }
 public struct Notice: Codable {
+    public let BoardNo: String?
+    public let MasterNo: String?
     public let Title: String
     public let Author: String?
     public let Registered: String?
