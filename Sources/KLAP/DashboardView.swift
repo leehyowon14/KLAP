@@ -24,6 +24,9 @@ struct DashboardView: View {
                 VStack(alignment:.leading,spacing:12) {
                     if model.onboarding { OnboardingView(model:model,setup:model.setup) }
                     else {
+            HStack { Text("주간 시간표").font(.headline);Spacer();if model.selectedCourse != nil { Button("전체 과목") { model.selectedCourse = nil }.font(.caption) } }
+            WeeklyTimetable(entries:model.snapshot.timetable?.Entries ?? []) { model.selectedCourse = $0 }
+            Divider().padding(.vertical,8)
                     if model.showSettings { settings }
                     if model.showLogin { login }
                     if let error = model.error {
@@ -41,11 +44,6 @@ struct DashboardView: View {
                     }
                 }.frame(maxWidth:.infinity,alignment:.leading).padding(.bottom,4)
             }.scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
-            if !model.onboarding {
-            Divider()
-            HStack { Text("주간 시간표").font(.headline);Spacer();if model.selectedCourse != nil { Button("전체 과목") { model.selectedCourse = nil }.font(.caption) } }
-            WeeklyTimetable(entries:model.snapshot.timetable?.Entries ?? []) { model.selectedCourse = $0 }
-            }
             Divider()
             HStack(spacing:16) {
                 VStack(alignment:.leading,spacing:2) {
