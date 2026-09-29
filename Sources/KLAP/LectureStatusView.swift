@@ -10,7 +10,7 @@ struct LectureStatusView: View {
             let due=LectureStatus.date(lecture.EndAt)
             let time=StudyTime(achieved:lecture.AchievedTime,required:lecture.RequiredTime)
             let completed=(Double(lecture.Progress) ?? 0) >= 100 || (time.remaining == 0)
-            let state=LectureStatus.resolve(complete:completed,deadline:due,started:model.attendanceStarted[item.id],finished:model.attendanceFinished[item.id],now:context.date)
+            let state=LectureStatus.resolve(complete:completed,deadline:due,started:LectureStatus.date(lecture.FirstStartedAt),finished:LectureStatus.date(lecture.FirstCompletedAt),now:context.date)
             HStack(spacing:12) {
                 VStack(alignment:.leading,spacing:6) {
                     Text(lecture.Title).font(.system(size:13,weight:.semibold)).fixedSize(horizontal:false,vertical:true)

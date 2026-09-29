@@ -7,8 +7,6 @@ import KLAPCore
 @MainActor final class AppModel: ObservableObject {
     @Published var loggedOut = UserDefaults.standard.bool(forKey:"loggedOut")
     @Published var requestedLecture: String?
-    @Published var attendanceStarted = UserDefaults.standard.dictionary(forKey:"attendanceStarted") as? [String:Date] ?? [:]
-    @Published var attendanceFinished = UserDefaults.standard.dictionary(forKey:"attendanceFinished") as? [String:Date] ?? [:]
     @Published var snapshot = Snapshot()
     @Published var busy = false
     @Published var pendingDecisions: [String:String] = [:]
@@ -141,20 +139,7 @@ import KLAPCore
             if let nextTerm=fresh.timetable?.Term.value, let previousTerm=snapshot.timetable?.Term.value, nextTerm != previousTerm { snapshot=Snapshot();selectedCourse=nil }
             // Partial failures retain the previous data and remain visibly stale.
             if let value = fresh.timetable { snapshot.timetable = value }
-            if let value = fresh.lectures {
-                snapshot.lectures = value
-                let observed=Date()
-                for item in value {
-                    let lecture=item.row.Lecture
-                    let time=StudyTime(achieved:lecture.AchievedTime,required:lecture.RequiredTime)
-                    if attendanceFinished[item.id] == nil,
-                       let due=LectureStatus.date(lecture.EndAt), observed <= due,
-                       (Double(lecture.Progress) ?? 0) >= 100 || time.remaining == 0 {
-                        attendanceFinished[item.id]=observed
-                    }
-                }
-                UserDefaults.standard.set(attendanceFinished,forKey:"attendanceFinished")
-            }
+            if let value = fresh.lectures { snapshot.lectures = value }
             if let value = fresh.assignments { snapshot.assignments = value }
             if let value = fresh.notices { snapshot.notices = value }
             snapshot.errors = fresh.errors
@@ -216,10 +201,6 @@ import KLAPCore
             let title = value.title ?? snapshot.lectures?.first(where: { $0.id == value.id })?.row.Lecture.Title ?? "강의"
             switch event.kind {
             case "start":
-                if let id=value.id, attendanceStarted[id] == nil {
-                    attendanceStarted[id]=Date()
-                    UserDefaults.standard.set(attendanceStarted,forKey:"attendanceStarted")
-                }
                 updateStudyTime(id:value.id)
                 studyTitle = title
                 progress = StudyProgress(percent: 0, current: value.current ?? 0, total: value.total ?? ids.count)
@@ -229,10 +210,6 @@ import KLAPCore
                 studyTitle = title
                 progress = StudyProgress(percent: value.percent ?? 0, current: value.current ?? 0, total: value.total ?? ids.count)
             case "completed":
-                if let id=value.id {
-                    attendanceFinished[id]=Date()
-                    UserDefaults.standard.set(attendanceFinished,forKey:"attendanceFinished")
-                }
                 if let id=value.id, UserDefaults.standard.bool(forKey:"destinationsConfigured"),
                    let list=UserDefaults.standard.string(forKey:"destinationReminder") {
                     completionTasks.append(Task { [self] in

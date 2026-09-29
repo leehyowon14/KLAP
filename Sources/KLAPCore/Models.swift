@@ -31,6 +31,8 @@ public struct LectureRow: Codable, Identifiable {
     public var id: String { self.ID }
 }
 public struct Lecture: Codable {
+    public let FirstStartedAt: String?
+    public let FirstCompletedAt: String?
     public let Title: String
     public let Progress: String
     public let AchievedTime: String?

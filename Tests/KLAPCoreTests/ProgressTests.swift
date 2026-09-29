@@ -89,3 +89,9 @@ expect(LectureStatus.resolve(complete:false,deadline:deadline,started:nil,finish
 expect(LectureStatus.urgency(deadline:deadline,now:deadline.addingTimeInterval(-18000)) == 2,"Five hours red")
 expect(LectureStatus.urgency(deadline:deadline,now:deadline.addingTimeInterval(-86400)) == 1,"One day orange")
 print("6 lecture status checks passed")
+
+let serverLecture = try JSONDecoder().decode(Lecture.self,from:Data(#"{"Title":"sample","Progress":"100","FirstStartedAt":"2026-09-01T15:01:00+09:00","FirstCompletedAt":"2026-09-01T16:33:00+09:00","AchievedTime":"41","RequiredTime":"41","EndAt":"2026-09-14T23:59:00+09:00"}"#.utf8))
+expect(LectureStatus.date(serverLecture.FirstStartedAt) != nil && LectureStatus.date(serverLecture.FirstCompletedAt) != nil,"CLI server timestamps decode")
+let legacyLecture=try JSONDecoder().decode(Lecture.self,from:Data(#"{"Title":"sample","Progress":"0"}"#.utf8))
+expect(legacyLecture.FirstStartedAt == nil && legacyLecture.FirstCompletedAt == nil,"Older cache timestamps unknown")
+print("2 CLI timestamp contract checks passed")
