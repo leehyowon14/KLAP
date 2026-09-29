@@ -9,6 +9,13 @@ mkdir -p "$staging" "$root/dist/KLAP.app/Contents/MacOS"
 if [ ! -f "$staging/go.mod" ]; then
   git -C "$source_repo" archive "$ref" | tar -x -C "$staging"
 fi
+for patch_file in "$root"/Bridge/patches/*.patch; do
+  if git -C "$staging" apply --check "$patch_file" 2>/dev/null; then
+    git -C "$staging" apply "$patch_file"
+  else
+    git -C "$staging" apply --reverse --check "$patch_file"
+  fi
+done
 mkdir -p "$staging/cmd/klap-mac-bridge"
 cp Bridge/*.go "$staging/cmd/klap-mac-bridge/"
 (cd "$staging" && go test ./cmd/klap-mac-bridge && go build -o "$root/dist/KLAP.app/Contents/MacOS/KLAPBridge" ./cmd/klap-mac-bridge)

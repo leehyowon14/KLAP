@@ -1,0 +1,24 @@
+--- a/bridges/macos/Sources/ReminderBridge/main.swift
++++ b/bridges/macos/Sources/ReminderBridge/main.swift
+@@ -74,7 +74,7 @@
+ }
+ 
+ func notes(for assignment: Assignment) -> String {
+-    return assignment.notes
++    return assignment.notes.components(separatedBy: .newlines).filter { !$0.hasPrefix("마감: ") }.joined(separator: "\n")
+ }
+ 
+ func metadataRange(in lines: [String]) -> Range<Int>? {
+@@ -227,10 +227,11 @@
+ func applyDueDate(_ dueAt: Date, to reminder: EKReminder) {
+     let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueAt)
+     reminder.dueDateComponents = components
++    reminder.startDateComponents = nil
+ }
+ 
+ func applyAlarm(_ dueAt: Date, beforeMinutes: Int, to reminder: EKReminder) {
+-    let offset = max(beforeMinutes, 1)
++    let offset = 24 * 60
+     guard let alarmDate = Calendar.current.date(byAdding: .minute, value: -offset, to: dueAt) else {
+         reminder.alarms = nil
+         return
