@@ -110,3 +110,12 @@ expect(minimalNotice.Registered == nil && minimalNotice.Top == nil, "Older notic
 let emptyNotice = try JSONDecoder().decode(NoticeDetailResult.self, from: Data(#"{"ID":"n","DetailURL":"https://klas.kw.ac.kr/","Detail":{"Title":"공지","ContentText":"","Registered":null,"Attachment":null}}"#.utf8))
 expect(emptyNotice.Detail.ContentText.isEmpty && emptyNotice.Detail.Attachment == nil, "Empty notice body and null attachment")
 print("2 notice contract checks passed")
+expect(GradeAllocation(count:0) == nil && GradeAllocation(count:-1) == nil, "Unknown or empty enrollment")
+let allocation107 = GradeAllocation(count:107)!
+expect(allocation107.a == 42 && allocation107.b == 43 && allocation107.lower == 22, "Noncumulative grade example")
+for count in [1, 20, 21, 100, 107, Int.max] {
+    let value = GradeAllocation(count:count)!
+    expect(value.a + value.b + value.lower == count, "Allocation conserves enrollment")
+    expect(value.a >= 0 && value.b >= 0 && value.lower >= 0, "Allocation nonnegative")
+}
+print("14 grade allocation checks passed")
