@@ -31,6 +31,7 @@ struct LectureStatusView: View {
                         Text("\(time.achieved.map { String(Int($0)) } ?? "??")/\(time.required.map { String(Int($0)) } ?? "??")분").foregroundStyle(.gray).monospacedDigit()
                     }
                 }.font(.system(size:12,weight:.semibold))
+                Button {model.openDownloads([item],selected:[item.id])} label:{Image(systemName:"arrow.down.to.line").frame(width:28,height:28).contentShape(Rectangle())}.buttonStyle(.plain).help("강의 다운로드").accessibilityLabel("\(lecture.Title) 다운로드")
                 Button("열기") { Task { await model.openLecture(item.id) } }.disabled(model.busy)
                 if item.reason.isEmpty { Button("수강") { model.requestedLecture=item.id }.disabled(model.busy) }
             }.padding(12).background(Theme.surface,in:RoundedRectangle(cornerRadius:12))

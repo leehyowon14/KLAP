@@ -44,7 +44,7 @@ func runDownloads(ctx context.Context, service lectureDownloader, r request, use
 		if p.Err != nil {
 			message = p.Err.Error()
 		}
-		send("download-progress", map[string]any{"ID": p.Lecture.ID, "Stage": p.Stage, "Bytes": p.Bytes, "TotalBytes": p.TotalBytes, "Error": message})
+		send("download-progress", map[string]any{"ID": p.Lecture.ID, "Stage": p.Stage, "Path": p.Path, "Bytes": p.Bytes, "TotalBytes": p.TotalBytes, "Error": message})
 	}})
 	if err != nil {
 		return err

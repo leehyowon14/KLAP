@@ -20,14 +20,18 @@ struct DashboardView: View {
                 Spacer()
                 if !model.onboarding {
                 if model.busy { ProgressView().controlSize(.small).frame(width:28,height:28) }
-                else { Button { if showAttendance || showAcademic {pageRefresh=UUID()} else {Task {await model.refresh()}} } label: { Image(systemName:"arrow.clockwise") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.busy || model.onboarding).help("새로고침").accessibilityLabel("새로고침") }
-                Button { showAcademic=true;showAttendance=false;showChanges=false;model.showSettings=false } label: { Image(systemName:"calendar") }.buttonStyle(.plain).frame(width:28,height:28).help("학사일정").accessibilityLabel("학사일정")
-                Button { showAcademic=false;showAttendance=false;showChanges=false;model.showSettings.toggle() } label: { Image(systemName:"gearshape") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.onboarding).help("설정").accessibilityLabel("설정")
+                else { Button { if model.showDownloads { Task {await model.refresh()} } else if showAttendance || showAcademic {pageRefresh=UUID()} else {Task {await model.refresh()}} } label: { Image(systemName:"arrow.clockwise") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.busy || model.onboarding).help("새로고침").accessibilityLabel("새로고침") }
+                Button { model.showDownloads=false;showAcademic=true;showAttendance=false;showChanges=false;model.showSettings=false } label: { Image(systemName:"calendar") }.buttonStyle(.plain).frame(width:28,height:28).help("학사일정").accessibilityLabel("학사일정")
+                Button { model.showDownloads=false;showAcademic=false;showAttendance=false;showChanges=false;model.showSettings.toggle() } label: { Image(systemName:"gearshape") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.onboarding).help("설정").accessibilityLabel("설정")
                 }
             }
             ScrollView {
                 VStack(alignment:.leading,spacing:12) {
                     if model.onboarding { OnboardingView(model:model,setup:model.setup) }
+                    else if model.showDownloads {
+                        pageHeading("강의 다운로드") {model.showDownloads=false}
+                        LectureDownloadsPage(model:model)
+                    }
                     else if showAcademic {
                         pageHeading("학사일정") { showAcademic=false }
                         AcademicPage(model:model,refreshID:pageRefresh)
@@ -85,7 +89,7 @@ struct DashboardView: View {
                     } else { courseContent }
                     }
                 }.frame(maxWidth:.infinity,alignment:.leading).padding(.bottom,4)
-            }.id(model.onboarding ? "onboarding" : showAcademic ? "academic" : showAttendance ? "attendance" : model.showSettings ? "settings" : showChanges ? "changes" : model.showSyllabus ? "syllabus" : model.showLogin ? "login" : model.selectedCourse ?? "home").scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
+            }.id(model.onboarding ? "onboarding" : model.showDownloads ? "downloads" : showAcademic ? "academic" : showAttendance ? "attendance" : model.showSettings ? "settings" : showChanges ? "changes" : model.showSyllabus ? "syllabus" : model.showLogin ? "login" : model.selectedCourse ?? "home").scrollIndicators(.hidden).frame(maxWidth:.infinity,maxHeight:.infinity)
             Rectangle().fill(Theme.line).frame(height:1)
             HStack(spacing:16) {
                 VStack(alignment:.leading,spacing:2) {
@@ -94,7 +98,7 @@ struct DashboardView: View {
                 }.font(.caption).foregroundStyle(.secondary).help(model.message).layoutPriority(-1)
                 Spacer()
                 if !model.onboarding { Button("동기화") { Task { await model.sync() } }.buttonStyle(.borderless).disabled(model.busy) }
-                Button { if model.studying { model.cancel() }; NSApp.terminate(nil) } label: { Label("종료", systemImage: "power") }.buttonStyle(.borderless).fixedSize().help("KLAP 종료").accessibilityLabel("KLAP 종료")
+                Button { if model.studying { model.cancel() }; if model.downloadState.running {model.cancelDownloads()}; NSApp.terminate(nil) } label: { Label("종료", systemImage: "power") }.buttonStyle(.borderless).fixedSize().help("KLAP 종료").accessibilityLabel("KLAP 종료")
             }
         }.tint(Theme.accent).foregroundStyle(Theme.ink).buttonStyle(FormButtonStyle(compact:true)).padding(20).frame(maxWidth:.infinity,maxHeight:.infinity)
         .allowsHitTesting(model.boardPresentation == nil && !model.studyConfirmationPresented)
@@ -107,7 +111,7 @@ struct DashboardView: View {
                 }
             }
         }
-        .onChange(of:model.notificationNavigation) { _ in showAcademic=false;showAttendance=false;showChanges=false;showPeriodInfo=false;model.studyConfirmationPresented=false }
+        .onChange(of:model.notificationNavigation) { _ in model.showDownloads=false;showAcademic=false;showAttendance=false;showChanges=false;showPeriodInfo=false;model.studyConfirmationPresented=false }
         .onChange(of:model.requestedLecture) { id in
             if let id { propose([id]);model.requestedLecture=nil }
         }
@@ -259,6 +263,7 @@ struct DashboardView: View {
                 Text("과목별 대시보드").font(.system(size:16,weight:.bold)).lineLimit(1)
                 Spacer()
                 Button { showAttendance=true } label: { Label("출석 조회",systemImage:"checkmark.circle") }.font(.caption).fixedSize()
+                Button {model.openDownloads(model.snapshot.lectures ?? [])} label:{Label("다운로드",systemImage:"arrow.down.to.line")}.font(.caption).fixedSize()
             }
             }
             if model.selectedCourse == nil {
@@ -282,6 +287,7 @@ struct DashboardView: View {
                     Text("강의").font(.system(size:16,weight:.bold))
                     Spacer()
                     if !model.eligibleIDs.isEmpty { Button("미수강 \(model.eligibleIDs.count)개 수강") { propose(model.eligibleIDs) }.disabled(model.busy) }
+                    Button {model.openDownloads(model.lectures)} label:{Label("다운로드",systemImage:"arrow.down.to.line")}.font(.caption).fixedSize()
                 }.padding(.top,12)
                 ForEach(model.lectures) { item in
                     LectureStatusView(item:item,model:model)

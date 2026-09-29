@@ -5,6 +5,12 @@ import Network
 import KLAPCore
 
 @MainActor final class AppModel: ObservableObject {
+    @Published var showDownloads=false
+    @Published var downloadChoices:[LectureItem]=[]
+    @Published var downloadSelection:Set<String>=[]
+    @Published var downloadState=LectureDownloadState()
+    @Published var downloadDirectory:URL?
+    var downloadAccount:String?
     let attachments = AttachmentManager()
     let contentNotifications = ContentNotificationService()
     @Published var studyConfirmationPresented=false
@@ -120,6 +126,7 @@ import KLAPCore
     func logout() {
         guard !busy else { return }
         contentNotifications.clearDelivered()
+        downloadState=LectureDownloadState();downloadChoices=[];downloadSelection=[];downloadDirectory=nil;downloadAccount=nil;showDownloads=false
         loggedOut=true
         UserDefaults.standard.set(true,forKey:"loggedOut")
         autoSync=false
