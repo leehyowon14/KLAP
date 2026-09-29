@@ -7,8 +7,8 @@
 <key>CFBundleIconName</key><string>KLAP</string>
 <key>CFBundleIconFile</key><string>KLAP</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.0</string>
-<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleVersion</key><string>2</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>LSUIElement</key><true/>
 <key>NSCalendarsUsageDescription</key><string>수업과 학사일정을 캘린더에 동기화합니다.</string>
