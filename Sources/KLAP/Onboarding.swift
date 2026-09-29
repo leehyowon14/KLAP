@@ -112,11 +112,7 @@ struct OnboardingView: View {
                         Button("시스템 권한 설정 열기") {setup.openPrivacySettings()}.buttonStyle(FormButtonStyle()).font(.caption)
                     }
                 } else {
-                    VStack(spacing:12) {
-                        destination("시간표",selection:$setup.timetable,options:setup.calendars,newName:setup.newTimetable)
-                        destination("학사일정",selection:$setup.academic,options:setup.calendars,newName:setup.newAcademic)
-                        destination("미리 알림",selection:$setup.reminder,options:setup.reminders,newName:setup.newReminder)
-                    }
+                    DestinationFields(setup:setup)
                 }
                 if let error=setup.error {Text(error).font(.caption).foregroundStyle(.orange)}
                 HStack {
@@ -126,9 +122,10 @@ struct OnboardingView: View {
                 }
             } else {
                 VStack(alignment:.leading,spacing:12) {
-                    Toggle("30분마다 일정 자동 동기화",isOn:$setup.automatic)
-                    Toggle("강의 완료·전환·오류 알림",isOn:$model.notifications)
-                }.toggleStyle(.switch).controlSize(.small)
+                    Toggle(isOn:$setup.automatic) { Text("30분마다 일정 자동 동기화").frame(maxWidth:.infinity,alignment:.leading) }
+                    Divider()
+                    Toggle(isOn:$model.notifications) { Text("강의 완료·전환·오류 알림").frame(maxWidth:.infinity,alignment:.leading) }
+                }.toggleStyle(.switch).controlSize(.small).padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
                 HStack {
                     Button("이전") {setup.step=1}.buttonStyle(FormButtonStyle())
                     Spacer()
@@ -146,25 +143,5 @@ struct OnboardingView: View {
         ["수업과 강의 정보를 불러옵니다. 비밀번호는 안전하게 보관됩니다.",
          "수업·학사일정은 캘린더에, 마감은 미리 알림에 등록합니다. 대상 설정은 KLAP-Cli와 공유됩니다.",
          "앱이 실행 중일 때 동기화하고, 잠자기에서 깨어나면 다시 갱신합니다."][setup.step]
-    }
-    private func destination(_ label:String,selection:Binding<String>,options:[String],newName:String)->some View {
-        VStack(alignment:.leading,spacing:5) {
-            Text(label).font(.caption.weight(.medium)).foregroundStyle(.secondary)
-            Menu {
-                Button("새로 만들기 · \(newName)") { selection.wrappedValue = "" }
-                ForEach(options,id:\.self) { name in
-                    Button(name) { selection.wrappedValue = name }
-                }
-            } label: {
-                HStack {
-                    Text(selection.wrappedValue.isEmpty ? "새로 만들기 · \(newName)" : selection.wrappedValue)
-                        .lineLimit(1).truncationMode(.middle)
-                    Spacer()
-                    Image(systemName:"chevron.up.chevron.down").font(.caption)
-                }.font(.system(size:14)).padding(.horizontal,12).frame(maxWidth:.infinity).frame(height:44)
-                    .background(.background.opacity(0.65),in:RoundedRectangle(cornerRadius:9))
-                    .overlay(RoundedRectangle(cornerRadius:9).strokeBorder(Color.primary.opacity(0.2)))
-            }.menuStyle(.borderlessButton).menuIndicator(.hidden).accessibilityLabel(label)
-        }
     }
 }

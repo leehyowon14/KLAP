@@ -92,15 +92,19 @@ import KLAPCore
         onboarding = false
         UserDefaults.standard.set(true, forKey: "onboardingComplete")
     }
-    func finishSetup() async {
-        guard !busy, setup.ready else { return }
+    func saveDestinations() async -> Bool {
+        guard !busy, setup.ready else { return false }
         var saved = false
         await perform(["Command":"configure", "TimetableName":setup.timetable.isEmpty ? setup.newTimetable : setup.timetable, "AcademicName":setup.academic.isEmpty ? setup.newAcademic : setup.academic, "ReminderName":setup.reminder.isEmpty ? setup.newReminder : setup.reminder, "TimetableExisting":!setup.timetable.isEmpty, "AcademicExisting":!setup.academic.isEmpty, "ReminderExisting":!setup.reminder.isEmpty]) { event in saved = event.kind == "done" }
-        guard saved, error == nil else { return }
+        guard saved, error == nil else { return false }
         UserDefaults.standard.set(setup.timetable.isEmpty ? setup.newTimetable : setup.timetable,forKey:"destinationTimetable")
         UserDefaults.standard.set(setup.academic.isEmpty ? setup.newAcademic : setup.academic,forKey:"destinationAcademic")
         UserDefaults.standard.set(setup.reminder.isEmpty ? setup.newReminder : setup.reminder,forKey:"destinationReminder")
         UserDefaults.standard.set(true, forKey: "destinationsConfigured")
+        return true
+    }
+    func finishSetup() async {
+        guard await saveDestinations() else { return }
         UserDefaults.standard.set(true, forKey: "onboardingComplete")
         autoSync = setup.automatic
         onboarding = false

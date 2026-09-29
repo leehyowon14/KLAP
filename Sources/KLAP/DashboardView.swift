@@ -107,7 +107,7 @@ struct DashboardView: View {
             VStack(alignment:.leading,spacing:12) {
                 Text("등록 위치").font(.headline)
                 Text("시간표·학사일정은 캘린더에, 과제·강의 마감은 미리 알림에 등록합니다.").font(.caption).foregroundStyle(.secondary)
-                settingsRow("캘린더·목록 변경",icon:"calendar") { model.onboarding=true;model.setup.step=1 }
+                DestinationSettings(model:model,setup:model.setup)
                 if let date=model.lastSync { Text("마지막 동기화 \(date.formatted())").font(.caption).foregroundStyle(.secondary) }
             }.padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
             VStack(alignment:.leading,spacing:12) {
