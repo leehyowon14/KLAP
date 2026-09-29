@@ -32,8 +32,7 @@ struct DashboardView: View {
                         AcademicPage(model:model)
                     }
                     else if showAttendance {
-                        pageHeading("출석 조회") { showAttendance=false }
-                        AttendancePage(model:model,courseName:model.selectedCourse)
+                        AttendancePage(model:model,courseName:model.selectedCourse,onBack:{showAttendance=false})
                     }
                     else if model.showSettings { settings }
                     else if showChanges { changesPage }

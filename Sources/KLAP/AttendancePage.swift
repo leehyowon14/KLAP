@@ -3,6 +3,7 @@ import SwiftUI
 struct AttendancePage: View {
     @ObservedObject var model:AppModel
     var courseName:String? = nil
+    var onBack:()->Void = {}
     @ViewState<Bool> private var showAll=false
     @ViewState<Bool> private var cdp=false
     @ViewState<AttendanceResult?> private var result=nil
@@ -11,10 +12,9 @@ struct AttendancePage: View {
     @ViewState<Bool> private var loading=false
     var body:some View {
         VStack(alignment:.leading,spacing:12) {
+            AttendanceHeader(cdp:$cdp,showsPicker:courseName == nil || showAll,loading:loading,onBack:onBack)
             if let courseName,!showAll {
                 HStack { Text("\(courseName) 출석").font(.headline);Spacer();Button("전체 과목") {showAll=true} }
-            } else {
-            Picker("출석 구분",selection:$cdp) { Text("과목별 출석").tag(false);Text("CDP 출석").tag(true) }.pickerStyle(.segmented).disabled(loading)
             }
             HStack { Text("KLAS 최신 학기 기준").font(.caption).foregroundStyle(.secondary);Spacer();Button("새로고침") {Task {await load()}}.disabled(loading) }
             if loading { ProgressView("출석을 불러오는 중…") }
