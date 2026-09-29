@@ -58,7 +58,7 @@ func main() {
 		fail(err)
 		return
 	}
-	if r.Command != "attend" {
+	if r.Command != "attend" && r.Command != "lecture-download" {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 3*time.Minute)
 		defer cancel()
