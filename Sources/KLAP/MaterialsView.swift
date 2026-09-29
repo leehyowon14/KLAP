@@ -1,18 +1,12 @@
 import SwiftUI
 import KLAPCore
 
-private struct MaterialSelection: Identifiable {
-    let reference:BoardReference
-    let title:String
-    var id:String { reference.BoardNo+":"+reference.MasterNo }
-}
 struct MaterialsView:View {
     @ObservedObject var model:AppModel
     @ViewState<[Notice]> private var rows=[]
     @ViewState<Bool> private var loading=true
     @ViewState<String?> private var failure=nil
     @ViewState<Int> private var page=0
-    @ViewState<MaterialSelection?> private var selected=nil
     private var pages:Int { max(1,(rows.count+2)/3) }
     var body:some View {
         VStack(alignment:.leading,spacing:12) {
@@ -25,7 +19,7 @@ struct MaterialsView:View {
             ForEach(Array(rows.dropFirst(page*3).prefix(3).enumerated()),id:\.offset) { index,row in
                 if index>0 { Divider() }
                 Button {
-                    if let reference=model.boardReference(kind:"material") { selected=MaterialSelection(reference:reference.post(row),title:row.Title) }
+                    if let reference=model.boardReference(kind:"material") { model.boardPresentation=BoardPresentation(reference:reference.post(row),title:row.Title) }
                 } label: {
                     HStack {
                         VStack(alignment:.leading,spacing:5) {
@@ -46,7 +40,6 @@ struct MaterialsView:View {
             }
         }.padding(16).frame(maxWidth:.infinity,alignment:.leading).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
             .task(id:"\(model.selectedCourse ?? "")-\(model.lastRefresh?.timeIntervalSince1970 ?? 0)"){await load()}
-            .sheet(item:$selected){post in BoardDetailView(model:model,reference:post.reference,title:post.title)}
     }
     private func load() async {
         loading=true;failure=nil;rows=[];page=0

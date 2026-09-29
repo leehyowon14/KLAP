@@ -6,20 +6,20 @@ struct BoardDetailView: View {
     @ObservedObject var model: AppModel
     let reference: BoardReference
     let title: String
-    @Environment(\.dismiss) private var dismiss
+    let onClose: () -> Void
     @ViewState<BoardDetail?> private var detail = nil
     @ViewState<String?> private var failure = nil
     @ViewState<Bool> private var loading = false
     @ViewState<String?> private var transferring = nil
     @ViewState<String?> private var fileError = nil
     @ViewState<URL?> private var saved = nil
-    init(model:AppModel,reference:BoardReference,title:String,initialDetail:BoardDetail?=nil) {
-        self.model=model;self.reference=reference;self.title=title
+    init(model:AppModel,reference:BoardReference,title:String,initialDetail:BoardDetail?=nil,onClose:@escaping () -> Void = {}) {
+        self.model=model;self.reference=reference;self.title=title;self.onClose=onClose
         _detail=ViewState(initialValue:initialDetail)
     }
     var body: some View {
         VStack(alignment:.leading,spacing:16) {
-            HStack { Text(reference.Kind == "notice" ? "공지" : "강의자료").font(.headline); Spacer(); Button("닫기") { dismiss() }.keyboardShortcut(.cancelAction).disabled(transferring != nil) }
+            HStack { Text(reference.Kind == "notice" ? "공지" : "강의자료").font(.headline); Spacer(); Button("닫기",action:onClose).keyboardShortcut(.cancelAction).disabled(transferring != nil) }
             ScrollView {
                 VStack(alignment:.leading,spacing:14) {
                     Text(title).font(.title3.bold()).textSelection(.enabled)
@@ -71,7 +71,7 @@ struct BoardDetailView: View {
                 }.frame(maxWidth:.infinity,alignment:.leading)
             }
         }.buttonStyle(FormButtonStyle(compact:true)).foregroundStyle(Theme.ink)
-            .padding(20).frame(width:460,height:560).background(Theme.surface)
+            .padding(20).frame(width:460,height:560).background(Theme.surface,in:RoundedRectangle(cornerRadius:16))
             .task { if detail == nil { await load() } }
     }
     private var originalURL:URL? {
@@ -95,4 +95,15 @@ func boardMetadata(_ author:String?,_ raw:String?) -> String {
     let formatter=ISO8601DateFormatter()
     let date=raw.flatMap { formatter.date(from:$0) }
     return [author,date?.formatted(date:.abbreviated,time:.omitted)].compactMap{$0}.filter{!$0.isEmpty}.joined(separator:" · ")
+}
+
+
+struct BoardOverlay<Content:View>: View {
+    @ViewBuilder let content: () -> Content
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.18).contentShape(Rectangle())
+            content().compositingGroup().shadow(color:.black.opacity(0.15),radius:18,y:6)
+        }.clipShape(RoundedRectangle(cornerRadius:18,style:.continuous))
+    }
 }

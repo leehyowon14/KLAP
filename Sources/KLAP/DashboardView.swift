@@ -77,6 +77,16 @@ struct DashboardView: View {
                 Button { if model.studying { model.cancel() }; NSApp.terminate(nil) } label: { Label("종료", systemImage: "power") }.buttonStyle(.borderless).fixedSize().help("KLAP 종료").accessibilityLabel("KLAP 종료")
             }
         }.tint(Theme.accent).foregroundStyle(Theme.ink).buttonStyle(FormButtonStyle(compact:true)).padding(20).frame(maxWidth:.infinity,maxHeight:.infinity)
+        .allowsHitTesting(model.boardPresentation == nil)
+        .accessibilityHidden(model.boardPresentation != nil)
+        .overlay {
+            if let post=model.boardPresentation {
+                BoardOverlay {
+                    BoardDetailView(model:model,reference:post.reference,title:post.title,onClose:{ model.boardPresentation=nil })
+                        .id(post.id)
+                }
+            }
+        }
         .onChange(of:model.requestedLecture) { id in
             if let id { propose([id]);model.requestedLecture=nil }
         }

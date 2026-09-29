@@ -22,6 +22,7 @@ private struct MenuBackdrop: NSViewRepresentable {
 /// A rounded menu-bar panel without NSPopover's pointer. The model outlives it.
 @MainActor final class MenuPanel {
     private let window: KeyablePanel
+    private let model: AppModel
     private var pendingShow: DispatchWorkItem?
     private var outsideMonitor: Any?
     private var keyMonitor: Any?
@@ -36,6 +37,7 @@ private struct MenuBackdrop: NSViewRepresentable {
     var isPresented: Bool { window.isVisible && window.isKeyWindow && NSApp.isActive }
 
     init(model: AppModel) {
+        self.model=model
         window = KeyablePanel(contentRect:NSRect(x:0,y:0,width:540,height:700),styleMask:[.borderless],backing:.buffered,defer:false)
         window.isReleasedWhenClosed = false
         // Visibility is managed by our outside-click handler, not NSPanel's
@@ -94,7 +96,11 @@ private struct MenuBackdrop: NSViewRepresentable {
                 }
             }
             keyMonitor=NSEvent.addLocalMonitorForEvents(matching:.keyDown) { [weak self] event in
-                if event.keyCode == 53, self?.window.attachedSheet == nil { self?.hide();return nil }
+                if event.keyCode == 53, let self, self.window.attachedSheet == nil {
+                    if self.model.boardPresentation == nil { self.hide();return nil }
+                    // Let the detail view's cancel button handle Escape, including its disabled state.
+                    return event
+                }
                 return event
             }
         }
@@ -103,7 +109,7 @@ private struct MenuBackdrop: NSViewRepresentable {
     func hide() {
         pendingShow?.cancel()
         pendingShow=nil
-        guard window.attachedSheet == nil else {return}
+        guard window.attachedSheet == nil, model.boardPresentation == nil else {return}
         window.orderOut(nil)
         if let monitor=outsideMonitor {NSEvent.removeMonitor(monitor);outsideMonitor=nil}
         if let monitor=keyMonitor {NSEvent.removeMonitor(monitor);keyMonitor=nil}

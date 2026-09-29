@@ -3,7 +3,6 @@ import KLAPCore
 
 struct NoticesView: View {
     @ObservedObject var model: AppModel
-    @ViewState<NoticeRow?> private var selected = nil
     @ViewState<Int> private var page = 0
     private var pageCount: Int { max(1, (rows.count + 2) / 3) }
     private var currentPage: Int { min(page, pageCount - 1) }
@@ -28,7 +27,9 @@ struct NoticesView: View {
             }
             ForEach(Array(Array(rows.dropFirst(currentPage * 3).prefix(3)).enumerated()), id: \.element.id) { index, row in
                 if index > 0 { Rectangle().fill(Theme.line).frame(height: 0.5) }
-                Button { selected = row } label: {
+                Button {
+                    if let reference=model.boardReference(kind:"notice") { model.boardPresentation=BoardPresentation(reference:reference.post(row.Notice),title:row.Notice.Title) }
+                } label: {
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 5) {
                             HStack(alignment: .firstTextBaseline, spacing: 5) {
@@ -58,9 +59,7 @@ struct NoticesView: View {
             .onChange(of: rows.map(\.id)) { _ in page = 0 }
             .padding(16).frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
-            .sheet(item: $selected) { row in
-                if let reference=model.boardReference(kind:"notice") { BoardDetailView(model:model,reference:reference.post(row.Notice),title:row.Notice.Title) }
-            }
+
     }
 }
 

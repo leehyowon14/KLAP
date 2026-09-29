@@ -1,6 +1,12 @@
 import AppKit
 import KLAPCore
 
+struct BoardPresentation: Identifiable {
+    let reference: BoardReference
+    let title: String
+    var id: BoardReference { reference }
+}
+
 extension AppModel {
     func boardReference(kind:String) -> BoardReference? {
         guard let term=snapshot.timetable?.Term,let course=term.subjList?.first(where:{$0.name==selectedCourse}) else {return nil}

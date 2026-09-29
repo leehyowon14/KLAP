@@ -6,6 +6,7 @@ import KLAPCore
 
 @MainActor final class AppModel: ObservableObject {
     let attachments = AttachmentManager()
+    @Published var boardPresentation: BoardPresentation?
     @Published var loggedOut = UserDefaults.standard.bool(forKey:"loggedOut")
     @Published var requestedLecture: String?
     @Published var noticeDetail: NoticeDetailResult?
