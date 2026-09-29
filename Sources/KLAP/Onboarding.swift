@@ -136,7 +136,7 @@ struct OnboardingView: View {
                 }
             }
             if setup.step != 0, let error=model.error {Text(error).font(.caption).foregroundStyle(.orange).textSelection(.enabled)}
-            Button("나중에 설정") {model.skipSetup()}.buttonStyle(FormButtonStyle()).font(.caption).foregroundStyle(.secondary).disabled(model.busy || setup.loading)
+            Button("나중에 설정") {model.skipSetup()}.buttonStyle(.plain).font(.callout).foregroundStyle(.secondary).padding(.vertical,8).contentShape(Rectangle()).disabled(model.busy || setup.loading)
         }.padding(.vertical,8).frame(maxWidth:.infinity,alignment:.leading)
     }
     private var title: String {
