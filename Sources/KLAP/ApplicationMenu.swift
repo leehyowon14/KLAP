@@ -2,8 +2,9 @@ import AppKit
 
 @MainActor enum ApplicationMenu {
     static func install(application:NSApplication, preview:NSWindow) {
+        let name=Bundle.main.object(forInfoDictionaryKey:"CFBundleName") as? String ?? "KLAP"
         let menu=NSMenu()
-        let appItem=NSMenuItem();let appMenu=NSMenu(title:"KLAP")
+        let appItem=NSMenuItem();let appMenu=NSMenu(title:name)
         appItem.submenu=appMenu;menu.addItem(appItem)
         let quit=appMenu.addItem(withTitle:"미리보기 닫기",action:#selector(NSWindow.performClose(_:)),keyEquivalent:"q")
         quit.target=preview
