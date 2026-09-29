@@ -20,7 +20,11 @@ struct BoardDetailView: View {
     }
     var body: some View {
         VStack(alignment:.leading,spacing:16) {
-            HStack { Text(reference.Kind == "notice" ? "공지" : "강의자료").font(.headline); Spacer(); Button("닫기",action:onClose).keyboardShortcut(.cancelAction).disabled(transferring != nil) }
+            HStack { Text(reference.Kind == "notice" ? "공지" : "강의자료").font(.headline); Spacer(); Button(action:onClose) {
+                Image(systemName:"xmark").font(.system(size:12,weight:.semibold))
+                    .frame(width:28,height:28).contentShape(Rectangle())
+            }.buttonStyle(.plain).foregroundStyle(.secondary)
+                .keyboardShortcut(.cancelAction).help("닫기").accessibilityLabel("닫기") }
             ScrollView {
                 VStack(alignment:.leading,spacing:14) {
                     Text(title).font(.title3.bold()).textSelection(.enabled)
@@ -108,11 +112,12 @@ func boardMetadata(_ author:String?,_ raw:String?) -> String {
 
 
 struct BoardOverlay<Content:View>: View {
+    var onClose: () -> Void = {}
     @ViewBuilder let content: () -> Content
     var body: some View {
         ZStack {
-            Color.black.opacity(0.18).contentShape(Rectangle())
-            content().compositingGroup().shadow(color:.black.opacity(0.15),radius:18,y:6)
+            Color.black.opacity(0.18).contentShape(Rectangle()).onTapGesture(perform:onClose)
+            content().contentShape(RoundedRectangle(cornerRadius:16)).onTapGesture {}.compositingGroup().shadow(color:.black.opacity(0.15),radius:18,y:6)
         }.clipShape(RoundedRectangle(cornerRadius:18,style:.continuous))
     }
 }

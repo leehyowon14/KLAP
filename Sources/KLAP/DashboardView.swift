@@ -81,7 +81,7 @@ struct DashboardView: View {
         .accessibilityHidden(model.boardPresentation != nil)
         .overlay {
             if let post=model.boardPresentation {
-                BoardOverlay {
+                BoardOverlay(onClose:{ model.boardPresentation=nil }) {
                     BoardDetailView(model:model,reference:post.reference,title:post.title,onClose:{ model.boardPresentation=nil })
                         .id(post.id)
                 }
