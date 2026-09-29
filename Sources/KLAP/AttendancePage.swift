@@ -2,6 +2,8 @@ import SwiftUI
 
 struct AttendancePage: View {
     @ObservedObject var model:AppModel
+    var courseName:String? = nil
+    @ViewState<Bool> private var showAll=false
     @ViewState<Bool> private var cdp=false
     @ViewState<AttendanceResult?> private var result=nil
     @ViewState<CdpResult?> private var cdpResult=nil
@@ -9,7 +11,11 @@ struct AttendancePage: View {
     @ViewState<Bool> private var loading=false
     var body:some View {
         VStack(alignment:.leading,spacing:12) {
+            if let courseName,!showAll {
+                HStack { Text("\(courseName) 출석").font(.headline);Spacer();Button("전체 과목") {showAll=true} }
+            } else {
             Picker("출석 구분",selection:$cdp) { Text("과목별 출석").tag(false);Text("CDP 출석").tag(true) }.pickerStyle(.segmented).disabled(loading)
+            }
             HStack { Text("KLAS 최신 학기 기준").font(.caption).foregroundStyle(.secondary);Spacer();Button("새로고침") {Task {await load()}}.disabled(loading) }
             if loading { ProgressView("출석을 불러오는 중…") }
             if let failure { Text(failure).foregroundStyle(.red);Button("다시 시도") {Task {await load()}}.disabled(loading) }
@@ -22,9 +28,10 @@ struct AttendancePage: View {
                 }
             } else if !cdp,let result {
                 Text(result.Term.label).font(.headline)
-                if (result.Rows ?? []).isEmpty {Text("출석 조회 대상 과목이 없습니다.")}
-                ForEach(result.Rows ?? [],id:\.Index) { row in
-                    AttendanceCourseCard(row:row)
+                let rows=(!showAll && courseName != nil) ? (result.Rows ?? []).filter{$0.Course.Name == courseName} : (result.Rows ?? [])
+                if rows.isEmpty {Text(courseName != nil && !showAll ? "이 과목의 최신 학기 출석 기록을 찾지 못했습니다." : "출석 조회 대상 과목이 없습니다.").foregroundStyle(.secondary)}
+                ForEach(rows,id:\.Index) { row in
+                    AttendanceCourseCard(row:row,expanded:courseName != nil && !showAll).id("\(row.Index)-\(showAll)")
                 }
             }
         }.task(id:cdp) {await load()}
