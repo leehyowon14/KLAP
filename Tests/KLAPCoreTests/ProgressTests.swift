@@ -214,6 +214,27 @@ expect(!FileManager.default.fileExists(atPath:third.path),"Expired cache cleaned
 do { try store.register(saved,key:"outside"); fatalError("Accepted external file") } catch { }
 print("11 preview file lifecycle checks passed")
 
+let custodyRoot=FileManager.default.temporaryDirectory.appendingPathComponent("klap-preview-custody-"+UUID().uuidString)
+defer {try? FileManager.default.removeItem(at:custodyRoot)}
+let custodyCache=custodyRoot.appendingPathComponent("cache")
+let unrelatedFile=custodyRoot.appendingPathComponent("user-data.txt")
+try FileManager.default.createDirectory(at:custodyCache,withIntermediateDirectories:true)
+try Data("user-owned".utf8).write(to:unrelatedFile)
+let forgedManifest=try JSONSerialization.data(withJSONObject:["forged":["path":unrelatedFile.path,"expires":0]])
+try forgedManifest.write(to:custodyCache.appendingPathComponent("manifest.json"))
+_ = try PreviewFileStore(root:custodyCache,now:baseDate)
+let afterManifestRecovery=try Data(contentsOf:unrelatedFile)
+expect(afterManifestRecovery==Data("user-owned".utf8),"A forged cache manifest cannot delete a file outside the preview root")
+let cacheFolder=custodyCache.appendingPathComponent("attachment-forged")
+try FileManager.default.createDirectory(at:cacheFolder,withIntermediateDirectories:true)
+let symlink=cacheFolder.appendingPathComponent("linked.txt")
+try FileManager.default.createSymbolicLink(at:symlink,withDestinationURL:unrelatedFile)
+let guardedStore=try PreviewFileStore(root:custodyCache,now:baseDate)
+do {try guardedStore.register(symlink,key:"symlink",now:baseDate);fatalError("A symlink to a user file must not be owned") } catch {}
+let afterSymlinkRejection=try Data(contentsOf:unrelatedFile)
+expect(afterSymlinkRejection==Data("user-owned".utf8),"Rejected symlink registration preserves the target")
+print("2 preview cache custody and symlink checks passed")
+
 let linkedText="한글 안내 👋\nhttps://discord.gg/3vv49s3UJ\n자세한 내용: (https://example.org/docs?q=1&lang=ko)."
 let linked=LinkedBody.attributed(linkedText)
 let urls=linked.runs.compactMap { $0.link?.absoluteString }
@@ -248,6 +269,21 @@ memory.closed("expiry",now:baseDate)
 memory.cleanup(now:baseDate.addingTimeInterval(10800))
 expect(memory.cached("expiry")==nil,"Closed preview expires after three hours")
 print("7 memory preview checks passed")
+
+let protectedMemory=MemoryPreviewStore(limit:8)
+try protectedMemory.register(Data([1,2,3,4]),name:"one.bin",key:"one",now:baseDate)
+protectedMemory.opened("one")
+try protectedMemory.register(Data([5,6,7,8]),name:"two.bin",key:"two",now:baseDate)
+protectedMemory.opened("two")
+do {try protectedMemory.register(Data(repeating:9,count:7),name:"replacement.bin",key:"one",now:baseDate.addingTimeInterval(1));fatalError("An oversized replacement must fail while all other cache entries are open")} catch {}
+expect(protectedMemory.cached("one")?.data==Data([1,2,3,4]) && protectedMemory.cached("two")?.data==Data([5,6,7,8]),"Failed replacement restores the previous item and preserves open previews")
+expect(protectedMemory.byteCount==8,"Failed replacement restores the memory byte count")
+let blockedDownloads=memoryDownloads.appendingPathComponent("not-a-directory")
+try Data("block".utf8).write(to:blockedDownloads)
+try memory.register(Data([8,9]),name:"retry.bin",key:"retry",now:baseDate)
+do {_ = try memory.save("retry",to:blockedDownloads);fatalError("Download into a regular file must fail")} catch {}
+expect(memory.cached("retry")?.data==Data([8,9]),"Failed save keeps the cached preview available for retry")
+print("10 memory preview capacity, replacement and retry checks passed")
 
 func contentID(_ kind:String,_ course:String,_ remote:String,_ term:String="2026,2")->String {
     let fields=[term,course,remote]+(kind=="notice" ? ["master"] : [])
