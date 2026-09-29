@@ -21,7 +21,7 @@ struct WeeklyTimetable: View {
                     Path { path in
                         for day in 0...days { let x = 32 + CGFloat(day)*width; path.move(to: CGPoint(x:x,y:0));path.addLine(to:CGPoint(x:x,y:geometry.size.height)) }
                         for hour in stride(from: start/60, through: end/60, by: 1) { let y=CGFloat(hour*60-start)*scale;path.move(to:CGPoint(x:32,y:y));path.addLine(to:CGPoint(x:geometry.size.width,y:y)) }
-                    }.stroke(.secondary.opacity(0.08), lineWidth: 0.5)
+                    }.stroke(Theme.line, lineWidth: 0.6)
                     ForEach(Array(stride(from: start/60, through: end/60, by: 2)), id: \.self) { hour in
                         Text(String(format:"%02d",hour)).font(.system(size:9,design:.monospaced)).foregroundStyle(.secondary).offset(x:3,y:CGFloat(hour*60-start)*scale)
                     }
@@ -43,20 +43,16 @@ struct WeeklyTimetable: View {
                     }
                     if entries.isEmpty { Text("시간표가 없습니다").font(.callout).foregroundStyle(.secondary).frame(width:geometry.size.width,height:geometry.size.height) }
                 }
-            }.frame(height:300)
+            }.frame(height:CGFloat(end-start) * 0.85)
             let untimed = entries.filter { $0.Online || !(1...7).contains($0.Weekday) || TimetableClock.minutes(period:$0.Period,span:max(1,$0.Span)) == nil }
             if !untimed.isEmpty {
                 Text("온라인·시간 미정: " + untimed.map(\.SubjectName).joined(separator:" · ")).font(.caption2).foregroundStyle(.secondary).lineLimit(2).help(untimed.map(\.SubjectName).joined(separator:"\n"))
             }
         }.padding(12)
-            .background(Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:16,style:.continuous))
+            .background(Theme.surface,in:RoundedRectangle(cornerRadius:16,style:.continuous))
     }
     private func color(_ id: String) -> Color {
-        let colors: [Color] = [
-            Color(red:0.18,green:0.38,blue:0.68), Color(red:0.13,green:0.43,blue:0.43),
-            Color(red:0.46,green:0.31,blue:0.65), Color(red:0.65,green:0.34,blue:0.16),
-            Color(red:0.65,green:0.27,blue:0.40), Color(red:0.35,green:0.37,blue:0.65)
-        ]
+        let colors = Theme.tones
         return colors[id.utf8.reduce(0) { ($0 + Int($1)) % colors.count }]
     }
 }

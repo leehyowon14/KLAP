@@ -37,7 +37,7 @@ private final class KeyablePanel: NSPanel {
         window.title = "KLAP"
         window.contentView = NSHostingView(rootView:
             DashboardView(model:model)
-                .background(.ultraThinMaterial)
+                .background(Theme.canvas)
                 .clipShape(RoundedRectangle(cornerRadius:18,style:.continuous))
                 .overlay(RoundedRectangle(cornerRadius:18,style:.continuous).strokeBorder(.primary.opacity(0.12),lineWidth:0.5))
         )
