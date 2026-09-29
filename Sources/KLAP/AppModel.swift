@@ -8,6 +8,7 @@ import KLAPCore
     @Published var loggedOut = UserDefaults.standard.bool(forKey:"loggedOut")
     @Published var snapshot = Snapshot()
     @Published var busy = false
+    @Published var pendingDecisions: [String:String] = [:]
     @Published var studying = false
     @Published var message = "KLAS에 연결해 주세요"
     @Published var error: String?
@@ -134,6 +135,18 @@ import KLAPCore
         if succeeded && error == nil { showLogin = false; await refresh(); return true }
         return false
     }
+    func resolveConflict(_ key:String, decision:String) async {
+        pendingDecisions[key]=decision
+        if !busy { await flushDecisions() }
+    }
+    private func flushDecisions() async {
+        guard !busy, !pendingDecisions.isEmpty else { return }
+        let decisions=pendingDecisions
+        await sync(decisions:decisions)
+        if error == nil {
+            for (key,value) in decisions where pendingDecisions[key] == value { pendingDecisions.removeValue(forKey:key) }
+        }
+    }
     func sync(decisions: [String: String] = [:]) async {
         guard !busy, !loggedOut else { return }
         guard UserDefaults.standard.bool(forKey: "destinationsConfigured") else { onboarding=true;setup.step=1;return }
@@ -184,6 +197,7 @@ import KLAPCore
         // Refresh server state without replacing the final job summary.
         let summary = message
         await refresh(); message = summary
+        await flushDecisions()
     }
     func cancel() { cancelled = true; bridge.cancel() }
 }

@@ -102,7 +102,10 @@ struct DashboardView: View {
             ForEach(model.conflicts) { conflict in
                 VStack(alignment:.leading) {
                     Text(conflict.Title).font(.caption.bold());Text(conflict.Summary).font(.caption2)
-                    HStack { Button("기존 항목 유지") { Task {await model.sync(decisions:[conflict.Key:"keep"])} };Button("KLAS 값 적용") {Task {await model.sync(decisions:[conflict.Key:"apply"])}} }.disabled(model.busy)
+                    HStack { Button("기존 항목 유지") { Task {await model.resolveConflict(conflict.Key,decision:"keep")} };Button("KLAS 값 적용") {Task {await model.resolveConflict(conflict.Key,decision:"apply")}} }.disabled(model.busy && !model.studying)
+                    if let decision=model.pendingDecisions[conflict.Key] {
+                        Text("\(decision == "keep" ? "기존 항목 유지" : "KLAS 값 적용") 선택됨 · 수강 종료 후 반영").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
         }
