@@ -200,3 +200,49 @@ memory.closed("expiry",now:baseDate)
 memory.cleanup(now:baseDate.addingTimeInterval(10800))
 expect(memory.cached("expiry")==nil,"Closed preview expires after three hours")
 print("7 memory preview checks passed")
+
+func contentID(_ kind:String,_ course:String,_ remote:String,_ term:String="2026,2")->String {
+    let fields=[term,course,remote]+(kind=="notice" ? ["master"] : [])
+    return ([kind,"v1"]+fields.map{Data($0.utf8).base64EncodedString().replacingOccurrences(of:"+",with:"-").replacingOccurrences(of:"/",with:"_").replacingOccurrences(of:"=",with:"")}).joined(separator:":")
+}
+func notificationSnapshot(account:String="account-a",term:String="2026,2",courses:[String]=["c1"],noticeIDs:[String]?=[],lectureIDs:[String]?=[],blocked:Set<String>=[])->Snapshot {
+    var json:[String:Any]=["account":account,"errors":[],"timetable":["Term":["value":term,"label":term,"subjList":courses.map{["name":$0,"value":$0]}]]]
+    if let noticeIDs {json["notices"]=noticeIDs.map{["ID":$0,"CourseName":ContentAddress($0)?.course ?? "c1","Notice":["Title":$0]] as [String:Any]}}
+    if let lectureIDs {json["lectures"]=lectureIDs.map{["row":["ID":$0,"CourseName":ContentAddress($0)?.course ?? "c1","Lecture":["Title":$0,"Progress":"0"]],"reason":blocked.contains($0) ? "closed" : ""] as [String:Any]}}
+    return try! JSONDecoder().decode(Snapshot.self,from:JSONSerialization.data(withJSONObject:json))
+}
+let n1=contentID("notice","c1","1"),n2=contentID("notice","c1","2")
+let l1=contentID("lecture","c1","1"),l2=contentID("lecture","c1","2")
+var history=ContentNotificationHistory()
+history.ingest(notificationSnapshot(noticeIDs:[n1],lectureIDs:[l1]),notices:true,lectures:true)
+expect(history.alerts.isEmpty,"Initial lists are baseline only")
+history.ingest(notificationSnapshot(noticeIDs:[n1,n2],lectureIDs:[l1,l2]),notices:true,lectures:true)
+expect(history.alerts.count==2,"New notice and lecture produce separate alerts")
+let lectureAlert=history.alerts.first{$0.kind == .lecture}!
+expect(lectureAlert.ids==[l2] && lectureAlert.actionable,"Single new lecture action")
+history=try JSONDecoder().decode(ContentNotificationHistory.self,from:JSONEncoder().encode(history))
+history.ingest(notificationSnapshot(noticeIDs:[n2,n1],lectureIDs:[l2,l1]),notices:true,lectures:true)
+expect(history.alerts.count==2,"Reordering and relaunch do not duplicate alerts")
+history.ingest(notificationSnapshot(noticeIDs:[],lectureIDs:nil),notices:true,lectures:true)
+history.ingest(notificationSnapshot(noticeIDs:[n1,n2],lectureIDs:[l1,l2]),notices:true,lectures:true)
+expect(history.alerts.count==2,"Deletion, partial failure and reappearance do not repeat")
+expect(history.eligibleIDs(for:lectureAlert,in:notificationSnapshot(lectureIDs:[l2],blocked:[l2])).isEmpty,"Expired or completed lecture cannot start")
+expect(history.eligibleIDs(for:lectureAlert,in:notificationSnapshot(account:"other",lectureIDs:[l2])).isEmpty,"Account mismatch cannot start")
+expect(history.eligibleIDs(for:lectureAlert,in:notificationSnapshot(term:"2027,1",lectureIDs:[l2])).isEmpty,"Term mismatch cannot start")
+history.markDelivered(lectureAlert.id)
+expect(history.pending(account:"account-a",notices:false,lectures:true).isEmpty,"Delivered notifications are not retried")
+let count=history.alerts.count
+history.ingest(notificationSnapshot(account:"other",noticeIDs:[n1,n2],lectureIDs:[l1,l2]),notices:true,lectures:true)
+expect(history.alerts.count==count,"New account baseline is isolated")
+history.ingest(notificationSnapshot(courses:["c1","c2"],noticeIDs:[n1,n2,contentID("notice","c2","1")],lectureIDs:[l1,l2]),notices:true,lectures:true)
+expect(history.alerts.count==count,"New course baseline avoids old content notifications")
+let l3=contentID("lecture","c1","3"),l4=contentID("lecture","c2","2")
+history.ingest(notificationSnapshot(courses:["c1","c2"],noticeIDs:[n1,n2],lectureIDs:[l1,l2,l3,l4]),notices:true,lectures:true)
+expect(Set(history.alerts.last!.ids)==Set([l3,l4]),"Multiple courses combine into one attend-all alert")
+history.ingest(notificationSnapshot(lectureIDs:[l1,l2,l3,contentID("lecture","c1","5")]),notices:false,lectures:false)
+let mutedCount=history.alerts.count
+history.ingest(notificationSnapshot(lectureIDs:[l1,l2,l3,contentID("lecture","c1","5")]),notices:true,lectures:true)
+expect(history.alerts.count==mutedCount,"Reenable does not replay muted additions")
+expect(ContentAddress("lecture:v1:!:!:!") == nil && ContentAddress("1:2")==nil,"Malformed and legacy IDs rejected")
+expect(history.alert(lectureAlert.id,now:Date().addingTimeInterval(15*86400))==nil,"Old notification actions expire")
+print("15 content notification checks passed")
