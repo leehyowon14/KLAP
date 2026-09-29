@@ -43,15 +43,23 @@ struct LectureDownloadState {
     var rows:[String:LectureDownloadRow]=[:]
     var transcripts:[String:LectureTranscriptProgressData]=[:]
     var transcriptQueue:[String]=[]
-    var transcribing:Bool {!transcriptQueue.isEmpty}
+    var downloadPhaseFinished=false
+    var transcribing:Bool {downloadPhaseFinished && !transcriptQueue.isEmpty}
     var displayTotal:Int {transcribing ? transcriptQueue.count : expected.count}
     var displayCurrent:Int {
         guard transcribing else{return completed}
+        return transcriptCurrent
+    }
+    var transcriptCurrent:Int {
         let terminal=transcriptQueue.filter{["transcribed","transcript-error"].contains(transcripts[$0]?.Stage ?? "")}.count
-        return min(displayTotal,terminal + (transcriptQueue.contains{transcripts[$0]?.Stage == "transcribe"} ? 1 : 0))
+        return min(transcriptQueue.count,terminal + (transcriptQueue.contains{transcripts[$0]?.Stage == "transcribe"} ? 1 : 0))
     }
     var displayFraction:Double {
         guard transcribing else{return fraction}
+        return transcriptFraction
+    }
+    var transcriptFraction:Double {
+        guard !transcriptQueue.isEmpty else{return 0}
         return transcriptQueue.reduce(0.0) {sum,id in
             guard let value=transcripts[id] else{return sum}
             return sum + (["transcribed","transcript-error"].contains(value.Stage) ? 1 : min(1,max(0,value.Progress ?? 0)))
@@ -75,7 +83,7 @@ struct LectureDownloadState {
     mutating func begin(_ ids:[String]) {
         expected=Array(NSOrderedSet(array:ids)) as? [String] ?? []
         rows=Dictionary(uniqueKeysWithValues:expected.map{($0,LectureDownloadRow())})
-        running=true;cancelling=false;failure=nil;transcripts=[:];transcriptQueue=[]
+        running=true;cancelling=false;failure=nil;transcripts=[:];transcriptQueue=[];downloadPhaseFinished=false
     }
     mutating func apply(_ progress:LectureDownloadProgressData) {
         guard rows[progress.ID] != nil else{return}
@@ -108,7 +116,7 @@ struct LectureDownloadState {
             rows[id]?.stage=cancelling ? "cancelled" : "error"
             rows[id]?.error=cancelling ? nil : (failure ?? "다운로드 결과를 확인하지 못했습니다.")
         }
-        for (id,value) in transcripts where value.Stage == "transcribe" {
+        for (id,value) in transcripts where value.Stage == "transcribe" || value.Stage == "transcript-waiting" {
             transcripts[id]=LectureTranscriptProgressData(ID:id,Stage:cancelling ? "cancelled" : "transcript-error",Path:value.Path,Error:cancelling ? "" : "전사 완료 응답을 받지 못했습니다.")
         }
         running=false;cancelling=false

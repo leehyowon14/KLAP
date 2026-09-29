@@ -38,6 +38,7 @@ extension AppModel {
             try await downloadBridge.run(["Command":"lecture-download","IDs":pending,"Directory":LectureDownloadLocation.root(in:directory).path,"ExpectedAccount":account,"Concurrency":downloadMaximum,"Adaptive":downloadAdaptive,"Transcribe":downloadTranscribe,"Locale":downloadLocale]) { [self] event in
                 do {
                     if event.kind == "error" {failure=event.error ?? "다운로드 실패"}
+                    if event.kind == "download-finished" {downloadState.downloadPhaseFinished=true}
                     if event.kind == "transcript-queue" {downloadState.beginTranscription(try event.decode([String].self))}
                     if event.kind == "transcript-progress" {downloadState.apply(try event.decode(LectureTranscriptProgressData.self))}
                     if event.kind == "download-progress" {downloadState.apply(try event.decode(LectureDownloadProgressData.self))}
@@ -77,6 +78,7 @@ extension AppModel {
               let path=downloadState.rows[id]?.path ?? downloadPaths[id] else{return}
         downloadState.begin([id])
         downloadState.apply([LectureDownloadResultData(ID:id,Path:path,Bytes:0,Skipped:true,Error:"")])
+        downloadState.downloadPhaseFinished=true
         downloadState.beginTranscription([id])
         downloadState.apply(LectureTranscriptProgressData(ID:id,Stage:"transcribe",Path:"",Error:""))
         var failure:String?
@@ -84,6 +86,7 @@ extension AppModel {
             try await downloadBridge.run(["Command":"lecture-transcribe","ID":id,"Directory":LectureDownloadLocation.root(in:directory).path,"ExpectedAccount":account,"Locale":downloadLocale]) { [self] event in
                 do {
                     if event.kind == "error" {failure=event.error}
+                    if event.kind == "download-finished" {downloadState.downloadPhaseFinished=true}
                     if event.kind == "transcript-queue" {downloadState.beginTranscription(try event.decode([String].self))}
                     if event.kind == "transcript-progress" {downloadState.apply(try event.decode(LectureTranscriptProgressData.self))}
                 } catch {failure=error.localizedDescription}

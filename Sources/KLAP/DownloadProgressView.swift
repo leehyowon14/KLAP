@@ -11,6 +11,14 @@ struct DownloadProgressView:View {
                 Button(model.downloadState.cancelling ? "취소 중…" : "취소") {model.cancelDownloads()}.disabled(model.downloadState.cancelling)
             }.font(.callout.weight(.medium))
             ProgressView(value:model.downloadState.displayFraction)
+            if !model.downloadState.transcribing && !model.downloadState.transcriptQueue.isEmpty {
+                HStack {
+                    Label("전사",systemImage:"waveform")
+                    Spacer()
+                    Text("\(model.downloadState.transcriptCurrent) / \(model.downloadState.transcriptQueue.count)").monospacedDigit()
+                }.font(.caption).foregroundStyle(.secondary)
+                ProgressView(value:model.downloadState.transcriptFraction)
+            }
             if !model.downloadState.transcribing {
                 Text("\(model.downloadState.active)개 다운로드 중 · \(model.downloadState.paused)개 일시정지 · \(model.downloadState.speedLabel)").font(.caption).foregroundStyle(.secondary)
             }

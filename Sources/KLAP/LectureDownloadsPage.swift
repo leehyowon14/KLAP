@@ -91,7 +91,7 @@ struct LectureDownloadsPage:View {
             HStack(spacing:8) {
                 if !downloaded,let state,state.stage != "cancelled" {Text(state.label).foregroundStyle(state.stage == "error" ? Color.red : Color.secondary).help(state.error ?? "")}
                 if let transcript=model.downloadState.transcripts[item.id],transcript.Stage != "cancelled",transcript.Stage != "transcribed" {
-                    Text(transcript.Stage == "cancelled" ? "전사 취소됨" : transcript.Stage == "transcribed" ? "전사 완료" : transcript.Stage == "transcript-error" ? "전사 실패" : "전사 중…")
+                    Text(transcript.Stage == "cancelled" ? "전사 취소됨" : transcript.Stage == "transcribed" ? "전사 완료" : transcript.Stage == "transcript-error" ? "전사 실패" : transcript.Stage == "transcript-waiting" ? "전사 대기" : "전사 중…")
                     if !transcript.Error.isEmpty {Image(systemName:"info.circle").help(transcript.Error).accessibilityLabel(transcript.Error)}
                 }
                 Spacer()
