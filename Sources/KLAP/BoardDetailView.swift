@@ -25,14 +25,18 @@ struct BoardDetailView: View {
                 VStack(alignment:.leading,spacing:14) {
                     Text(title).font(.title3.bold()).textSelection(.enabled)
                     if let detail {
-                        Text(boardMetadata(detail.Detail.Author,detail.Detail.Registered)).font(.caption).foregroundStyle(.secondary)
+                        HStack(alignment:.firstTextBaseline,spacing:8) {
+                            Text(boardMetadata(detail.Detail.Author,detail.Detail.Registered)).foregroundStyle(.secondary)
+                            if let url=originalURL {
+                                Link("KLAS에서 원문 보기 ↗",destination:url).buttonStyle(.plain).fixedSize()
+                            }
+                        }.font(.caption)
                         Divider()
                         if let html=detail.Detail.ContentHTML, !html.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty {
                             BoardHTMLView(html:html,height:$bodyHeight).frame(height:bodyHeight)
                         } else {
                         Text(LinkedBody.attributed(detail.Detail.ContentText.isEmpty ? "본문이 없습니다." : detail.Detail.ContentText)).lineSpacing(5).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
                         }
-                        if let url=originalURL { Link("KLAS에서 원문 보기 ↗",destination:url).font(.caption).buttonStyle(.plain) }
                         Divider()
                         HStack { Label("첨부파일",systemImage:"paperclip").font(.headline); Text("\(detail.Files?.count ?? 0)").foregroundStyle(.secondary) }
                         if let error=detail.FilesError, !error.isEmpty {
