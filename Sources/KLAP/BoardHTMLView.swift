@@ -54,7 +54,7 @@ struct BoardHTMLView: NSViewRepresentable {
         }
         fragment.append(document.createTextNode(text.slice(offset))); node.replaceWith(fragment);
     }
-    Math.max(40,document.body.scrollHeight)
+    Math.ceil(Math.max(40,document.body.scrollHeight,document.documentElement.scrollHeight,document.body.getBoundingClientRect().bottom + parseFloat(getComputedStyle(document.body).marginBottom || 0)))
     """#
     final class Coordinator: NSObject, WKNavigationDelegate {
         var parent: BoardHTMLView
@@ -78,7 +78,7 @@ struct BoardHTMLView: NSViewRepresentable {
             // App-owned evaluation remains available with page JavaScript disabled.
             webView.evaluateJavaScript(BoardHTMLView.preparationScript) { [weak self] value, _ in
                 guard let self, let number = value as? NSNumber else { return }
-                self.parent.height = min(1600, max(40, CGFloat(number.doubleValue)))
+                self.parent.height = max(40, CGFloat(number.doubleValue).rounded(.up))
             }
         }
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
