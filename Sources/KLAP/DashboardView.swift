@@ -26,11 +26,17 @@ struct DashboardView: View {
                 }
             }
             if model.downloadState.running && !model.showDownloads {DownloadProgressView(model:model)}
+            if !model.onboarding && model.showDownloads {
+                VStack(alignment:.leading,spacing:12) {
+                    pageHeading("강의 다운로드") {model.showDownloads=false}
+                    LectureDownloadActions(model:model)
+                }
+                Divider()
+            }
             ScrollView {
                 VStack(alignment:.leading,spacing:12) {
                     if model.onboarding { OnboardingView(model:model,setup:model.setup) }
                     else if model.showDownloads {
-                        pageHeading("강의 다운로드") {model.showDownloads=false}
                         LectureDownloadsPage(model:model)
                     }
                     else if showAcademic {
