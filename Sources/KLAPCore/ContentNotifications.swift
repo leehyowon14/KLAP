@@ -36,6 +36,7 @@ public struct ContentAlert:Codable,Identifiable {
 }
 
 public struct ContentNotificationHistory:Codable {
+    private var awaitingStart:[String:Set<String>]?
     private var seen:[String:Set<String>]=[:]
     public private(set) var alerts:[ContentAlert]=[]
     public init() {}
@@ -61,6 +62,30 @@ public struct ContentNotificationHistory:Codable {
             for course in table.Term.subjList ?? [] {
                 let valid=rows.filter{ContentAddress($0.id)?.term==term && ContentAddress($0.id)?.course==course.id}
                 added.formUnion(newIDs(account:account,term:term,course:course.id,kind:"lecture",ids:valid.map(\.id)))
+            }
+            var opened=Set<String>()
+            for course in table.Term.subjList ?? [] {
+                let key=account+":"+term+":"+course.id
+                let valid=rows.filter{ContentAddress($0.id)?.term==term && ContentAddress($0.id)?.course==course.id}
+                var pending=awaitingStart?[key] ?? []
+                for item in valid {
+                    if let start=LectureStatus.date(item.row.Lecture.StartAt),start>now {
+                        pending.insert(item.id)
+                    } else if pending.contains(item.id),item.reason.isEmpty {
+                        opened.insert(item.id)
+                        pending.remove(item.id)
+                    } else if let end=LectureStatus.date(item.row.Lecture.EndAt),end<now {
+                        pending.remove(item.id)
+                    }
+                }
+                if awaitingStart == nil {awaitingStart=[:]}
+                awaitingStart?[key]=pending
+            }
+            let available=rows.filter{opened.contains($0.id) && !added.contains($0.id)}
+            if lectures,!available.isEmpty {
+                append(account:account,term:term,kind:.lecture,ids:available.map(\.id),
+                       title:available.count==1 ? "\(available[0].row.CourseName) · 수강 가능" : "수강 가능한 강의 \(available.count)개",
+                       body:available.prefix(3).map{"\($0.row.CourseName) · \($0.row.Lecture.Title)"}.joined(separator:"\n"),actionable:true,now:now)
             }
             let fresh=rows.filter{added.contains($0.id)}
             if lectures,!fresh.isEmpty {

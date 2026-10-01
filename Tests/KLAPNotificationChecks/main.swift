@@ -47,6 +47,41 @@ Task { @MainActor in
     }
     print("Notification categories, foreground actions, single/batch eligibility and opaque payload checks passed")
 
+    func periodSnapshot(_ reason:String,start:String="2026-10-02T09:00:00+09:00",account:String="test-account")->Snapshot {
+        let snapshot=notificationTestSnapshot(notices:[],lectures:[notificationTestID("lecture","future")])
+        var json=try! JSONSerialization.jsonObject(with:JSONEncoder().encode(snapshot)) as! [String:Any]
+        json["account"]=account
+        var items=json["lectures"] as! [[String:Any]]
+        items[0]["reason"]=reason
+        var row=items[0]["row"] as! [String:Any]
+        var lecture=row["Lecture"] as! [String:Any]
+        lecture["StartAt"]=start;lecture["EndAt"]="2026-10-03T09:00:00+09:00"
+        row["Lecture"]=lecture;items[0]["row"]=row;json["lectures"]=items
+        return try! JSONDecoder().decode(Snapshot.self,from:JSONSerialization.data(withJSONObject:json))
+    }
+    let before=LectureStatus.date("2026-10-02T08:59:59+09:00")!
+    let start=LectureStatus.date("2026-10-02T09:00:00+09:00")!
+    var history=ContentNotificationHistory()
+    history.ingest(periodSnapshot("기간 전"),notices:true,lectures:true,now:before)
+    precondition(history.alerts.isEmpty)
+    history=try! JSONDecoder().decode(ContentNotificationHistory.self,from:JSONEncoder().encode(history))
+    history.ingest(periodSnapshot(""),notices:true,lectures:true,now:before)
+    precondition(history.alerts.isEmpty,"Start boundary must not be crossed early")
+    history.ingest(periodSnapshot("지원 불가"),notices:true,lectures:true,now:start)
+    precondition(history.alerts.isEmpty,"Unavailable lecture must not offer study")
+    history.ingest(periodSnapshot(""),notices:true,lectures:true,now:start)
+    precondition(history.alerts.count==1 && history.alerts[0].actionable && history.alerts[0].title.contains("수강 가능"))
+    history.ingest(periodSnapshot(""),notices:true,lectures:true,now:start)
+    precondition(history.alerts.count==1,"Availability alert must not repeat")
+    let legacy=try! JSONSerialization.jsonObject(with:JSONEncoder().encode(ContentNotificationHistory())) as! [String:Any]
+    _ = try! JSONDecoder().decode(ContentNotificationHistory.self,from:JSONSerialization.data(withJSONObject:legacy.filter{$0.key != "awaitingStart"}))
+    var muted=ContentNotificationHistory()
+    muted.ingest(periodSnapshot("기간 전"),notices:true,lectures:true,now:before)
+    muted.ingest(periodSnapshot(""),notices:true,lectures:false,now:start)
+    muted.ingest(periodSnapshot(""),notices:true,lectures:true,now:start)
+    precondition(muted.alerts.isEmpty,"Muted availability must not replay")
+    print("Lecture start boundary, persistent pending state, unsupported status, deduplication, legacy history and muted transition checks passed")
+
     var permission:UNAuthorizationStatus = .notDetermined
     var requests=0
     let suite="KLAP.permission-check."+UUID().uuidString
