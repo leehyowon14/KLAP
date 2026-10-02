@@ -26,11 +26,17 @@ struct DashboardView: View {
                 }
             }
             if model.downloadState.running && !model.showDownloads {DownloadProgressView(model:model)}
+            if !model.onboarding && model.showDownloads {
+                VStack(alignment:.leading,spacing:12) {
+                    pageHeading("강의 다운로드") {model.showDownloads=false}
+                    LectureDownloadActions(model:model)
+                }
+                Divider()
+            }
             ScrollView {
                 VStack(alignment:.leading,spacing:12) {
                     if model.onboarding { OnboardingView(model:model,setup:model.setup) }
                     else if model.showDownloads {
-                        pageHeading("강의 다운로드") {model.showDownloads=false}
                         LectureDownloadsPage(model:model)
                     }
                     else if showAcademic {
@@ -107,7 +113,7 @@ struct DashboardView: View {
         .overlay {
             if let post=model.boardPresentation {
                 BoardOverlay(onClose:{ model.boardPresentation=nil }) {
-                    BoardDetailView(model:model,reference:post.reference,title:post.title,onClose:{ model.boardPresentation=nil })
+                    BoardDetailView(model:model,reference:post.reference,title:post.title,onPrevious:post.adjacent(-1).map {previous in {model.boardPresentation=previous}},onNext:post.adjacent(1).map {next in {model.boardPresentation=next}},onClose:{ model.boardPresentation=nil })
                         .id(post.id)
                 }
             }

@@ -40,7 +40,14 @@ extension AppModel {
             await attend(ids,expectedAccount:alert.account)
         } else if alert.kind == .notice,alert.ids.count==1,
                   let row=fresh.notices?.first(where:{$0.id==alert.ids[0]}),let address=ContentAddress(row.id) {
-            boardPresentation=BoardPresentation(reference:BoardReference(kind:"notice",term:address.term,subject:address.course,board:address.parts[0],master:address.parts[1]),title:row.Notice.Title)
+            let entries=(fresh.notices ?? []).filter {ContentAddress($0.id)?.course==address.course && ContentAddress($0.id)?.term==address.term}.sorted {
+                if ($0.Notice.Top ?? false) != ($1.Notice.Top ?? false) {return $0.Notice.Top ?? false}
+                return ($0.Notice.Registered ?? "") > ($1.Notice.Registered ?? "")
+            }.compactMap { item -> BoardEntry? in
+                guard let itemAddress=ContentAddress(item.id) else {return nil}
+                return BoardEntry(reference:BoardReference(kind:"notice",term:itemAddress.term,subject:itemAddress.course,board:itemAddress.parts[0],master:itemAddress.parts[1]),title:item.Notice.Title)
+            }
+            boardPresentation=BoardPresentation(reference:BoardReference(kind:"notice",term:address.term,subject:address.course,board:address.parts[0],master:address.parts[1]),title:row.Notice.Title,entries:entries)
         }
     }
 }

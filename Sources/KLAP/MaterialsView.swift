@@ -19,7 +19,7 @@ struct MaterialsView:View {
             ForEach(Array(rows.dropFirst(page*3).prefix(3).enumerated()),id:\.offset) { index,row in
                 if index>0 { Divider() }
                 Button {
-                    if let reference=model.boardReference(kind:"material") { model.boardPresentation=BoardPresentation(reference:reference.post(row),title:row.Title) }
+                    if let reference=model.boardReference(kind:"material") { model.boardPresentation=BoardPresentation(reference:reference.post(row),title:row.Title,entries:rows.map{BoardEntry(reference:reference.post($0),title:$0.Title)}) }
                 } label: {
                     HStack {
                         VStack(alignment:.leading,spacing:5) {

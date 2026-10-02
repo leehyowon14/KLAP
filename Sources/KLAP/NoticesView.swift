@@ -28,7 +28,7 @@ struct NoticesView: View {
             ForEach(Array(Array(rows.dropFirst(currentPage * 3).prefix(3)).enumerated()), id: \.element.id) { index, row in
                 if index > 0 { Rectangle().fill(Theme.line).frame(height: 0.5) }
                 Button {
-                    if let reference=model.boardReference(kind:"notice") { model.boardPresentation=BoardPresentation(reference:reference.post(row.Notice),title:row.Notice.Title) }
+                    if let reference=model.boardReference(kind:"notice") { model.boardPresentation=BoardPresentation(reference:reference.post(row.Notice),title:row.Notice.Title,entries:rows.map{BoardEntry(reference:reference.post($0.Notice),title:$0.Notice.Title)}) }
                 } label: {
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 5) {
