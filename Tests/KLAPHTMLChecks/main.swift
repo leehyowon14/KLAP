@@ -3,6 +3,28 @@ import SwiftUI
 import WebKit
 
 let app = NSApplication.shared
+final class ScrollReceiver:NSScrollView {
+    var received=0
+    override func scrollWheel(with event:NSEvent) {received+=1}
+}
+let scrollReceiver=ScrollReceiver(frame:NSRect(x:0,y:0,width:420,height:300))
+let expandedWeb=BoardWebView(frame:NSRect(x:0,y:0,width:420,height:3000))
+scrollReceiver.documentView=expandedWeb
+let scrollWindow=NSWindow(contentRect:NSRect(x:0,y:0,width:420,height:300),styleMask:.borderless,backing:.buffered,defer:false)
+scrollWindow.contentView=scrollReceiver
+scrollWindow.orderFront(nil)
+func scrollInput(_ point:NSPoint,window:NSWindow)->NSEvent {
+    NSEvent.otherEvent(with:.applicationDefined,location:point,modifierFlags:[],timestamp:0,windowNumber:window.windowNumber,context:nil,subtype:0,data1:0,data2:0)!
+}
+precondition(expandedWeb.forwardScroll(scrollInput(NSPoint(x:100,y:100),window:scrollWindow)))
+precondition(scrollReceiver.received==1,"HTML must forward scroll input to the detail scroll view")
+precondition(!expandedWeb.forwardScroll(scrollInput(NSPoint(x:-100,y:100),window:scrollWindow)))
+let otherWindow=NSWindow(contentRect:NSRect(x:0,y:0,width:420,height:300),styleMask:.borderless,backing:.buffered,defer:false)
+precondition(!expandedWeb.forwardScroll(scrollInput(NSPoint(x:100,y:100),window:otherWindow)))
+scrollReceiver.documentView=nil
+precondition(!expandedWeb.forwardScroll(scrollInput(NSPoint(x:100,y:100),window:scrollWindow)))
+scrollWindow.close();otherWindow.close()
+print("Expanded HTML forwards scrolling only inside its own window and enclosing scroll view")
 let config = WKWebViewConfiguration()
 config.websiteDataStore = .nonPersistent()
 config.defaultWebpagePreferences.allowsContentJavaScript = false

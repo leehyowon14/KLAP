@@ -11,7 +11,7 @@ struct BoardHTMLView: NSViewRepresentable {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .nonPersistent()
         config.defaultWebpagePreferences.allowsContentJavaScript = false
-        let view = WKWebView(frame: .zero, configuration: config)
+        let view = BoardWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
         view.setValue(false, forKey: "drawsBackground")
         return view
@@ -90,4 +90,26 @@ struct BoardHTMLView: NSViewRepresentable {
             }
         }
     }
+}
+
+/// The expanded HTML document scrolls with the surrounding detail page.
+final class BoardWebView:WKWebView {
+    private var scrollMonitor:Any?
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let scrollMonitor {NSEvent.removeMonitor(scrollMonitor);self.scrollMonitor=nil}
+        guard window != nil else {return}
+        scrollMonitor=NSEvent.addLocalMonitorForEvents(matching:.scrollWheel) { [weak self] event in
+            guard let self,self.forwardScroll(event) else {return event}
+            return nil
+        }
+    }
+    @discardableResult func forwardScroll(_ event:NSEvent)->Bool {
+        guard let window,event.window === window,
+              visibleRect.contains(convert(event.locationInWindow,from:nil)),
+              let scroll=enclosingScrollView else {return false}
+        scroll.scrollWheel(with:event)
+        return true
+    }
+    deinit {if let scrollMonitor {NSEvent.removeMonitor(scrollMonitor)}}
 }
