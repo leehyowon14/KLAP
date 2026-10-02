@@ -113,7 +113,7 @@ struct DashboardView: View {
         .overlay {
             if let post=model.boardPresentation {
                 BoardOverlay(onClose:{ model.boardPresentation=nil }) {
-                    BoardDetailView(model:model,reference:post.reference,title:post.title,onClose:{ model.boardPresentation=nil })
+                    BoardDetailView(model:model,reference:post.reference,title:post.title,onPrevious:post.adjacent(-1).map {previous in {model.boardPresentation=previous}},onNext:post.adjacent(1).map {next in {model.boardPresentation=next}},onClose:{ model.boardPresentation=nil })
                         .id(post.id)
                 }
             }

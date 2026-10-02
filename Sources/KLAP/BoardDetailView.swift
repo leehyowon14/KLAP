@@ -7,6 +7,8 @@ struct BoardDetailView: View {
     let reference: BoardReference
     let title: String
     let onClose: () -> Void
+    let onPrevious:(()->Void)?
+    let onNext:(()->Void)?
     @ViewState<BoardDetail?> private var detail = nil
     @ViewState<CGFloat> private var bodyHeight = 40
     @ViewState<String?> private var failure = nil
@@ -14,8 +16,9 @@ struct BoardDetailView: View {
     @ViewState<String?> private var transferring = nil
     @ViewState<String?> private var fileError = nil
     @ViewState<URL?> private var saved = nil
-    init(model:AppModel,reference:BoardReference,title:String,initialDetail:BoardDetail?=nil,onClose:@escaping () -> Void = {}) {
+    init(model:AppModel,reference:BoardReference,title:String,initialDetail:BoardDetail?=nil,onPrevious:(()->Void)?=nil,onNext:(()->Void)?=nil,onClose:@escaping () -> Void = {}) {
         self.model=model;self.reference=reference;self.title=title;self.onClose=onClose
+        self.onPrevious=onPrevious;self.onNext=onNext
         _detail=ViewState(initialValue:initialDetail)
     }
     var body: some View {
@@ -27,7 +30,19 @@ struct BoardDetailView: View {
                 .keyboardShortcut(.cancelAction).help("닫기").accessibilityLabel("닫기") }
             ScrollView {
                 VStack(alignment:.leading,spacing:14) {
-                    Text(title).font(.title3.bold()).textSelection(.enabled)
+                    HStack(alignment:.top,spacing:12) {
+                        Text(title).font(.title3.bold()).textSelection(.enabled).frame(maxWidth:.infinity,alignment:.leading)
+                        HStack(spacing:4) {
+                            Button {onPrevious?()} label:{Image(systemName:"chevron.left").frame(width:28,height:28)}
+                                .disabled(onPrevious == nil || loading || model.busy || transferring != nil)
+                                .help(reference.Kind == "notice" ? "이전 공지" : "이전 강의자료")
+                                .accessibilityLabel(reference.Kind == "notice" ? "이전 공지" : "이전 강의자료")
+                            Button {onNext?()} label:{Image(systemName:"chevron.right").frame(width:28,height:28)}
+                                .disabled(onNext == nil || loading || model.busy || transferring != nil)
+                                .help(reference.Kind == "notice" ? "다음 공지" : "다음 강의자료")
+                                .accessibilityLabel(reference.Kind == "notice" ? "다음 공지" : "다음 강의자료")
+                        }.buttonStyle(.plain)
+                    }
                     if let detail {
                         HStack(alignment:.firstTextBaseline,spacing:8) {
                             Text(boardMetadata(detail.Detail.Author,detail.Detail.Registered)).foregroundStyle(.secondary)
