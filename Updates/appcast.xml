@@ -6,6 +6,15 @@
         <description>KLAP 공식 업데이트</description>
         <language>ko</language>
         <item>
+            <title>0.3.1</title>
+            <pubDate>Tue, 06 Oct 2026 10:47:18 +0900</pubDate>
+            <sparkle:version>8</sparkle:version>
+            <sparkle:shortVersionString>0.3.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/leehyowon14/KLAP/releases/download/v0.3.1/KLAP-v0.3.1.zip" length="10087842" type="application/octet-stream" sparkle:edSignature="4JwSFfl15o646n9kQ8PjX66+CNGgh2LwUPqjvpwu9CJQN22do9zKJg5aRamKkH0jqVFCKhwrPFHOypK0N55LAQ=="/>
+        </item>
+        <item>
             <title>0.3.0</title>
             <pubDate>Wed, 30 Sep 2026 04:03:37 +0900</pubDate>
             <sparkle:version>7</sparkle:version>
@@ -22,15 +31,6 @@
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
             <enclosure url="https://github.com/leehyowon14/KLAP/releases/download/v0.2.2-beta/KLAP-v0.2.2-beta.zip" length="9515904" type="application/octet-stream" sparkle:edSignature="0nddRuNi/q4aBCo9ES1c13IpUvDZ1PWCM/6qRdL+6uXN3Dtw+3s12xq/Rm87jxXQ6+Puhx+aXNGpBRFdm/sDCA=="/>
-        </item>
-        <item>
-            <title>0.2.1.1-hotfix</title>
-            <pubDate>Tue, 29 Sep 2026 21:38:41 +0900</pubDate>
-            <sparkle:version>4</sparkle:version>
-            <sparkle:shortVersionString>0.2.1.1-hotfix</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/leehyowon14/KLAP/releases/download/v0.2.1.1-hotfix-beta/KLAP-v0.2.1.1-hotfix-beta.zip" length="9506542" type="application/octet-stream" sparkle:edSignature="34rjoxOyK5lhVBFmt3w9axlGUDmGXiE1msbDxSEyRHp+WBryf7looVMaondO1jWPwBfj04Yjp/E1oGtB5lF9Cg=="/>
         </item>
     </channel>
 </rss>
