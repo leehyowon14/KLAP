@@ -111,6 +111,7 @@ import KLAPCore
     @Published var reminderCompletionError: String?
     private var completionTasks: [Task<Void,Never>] = []
     private var timer: Timer?
+    private var lectureStartTimer:Timer?
     private let network = NWPathMonitor()
     private var wasOffline = false
     private var cancelled = false
@@ -139,6 +140,22 @@ import KLAPCore
         network.start(queue: DispatchQueue(label: "KLAP.network"))
         Task { await setup.requestAccess(); if !onboarding && !loggedOut { await refresh(); if autoSync && setup.ready { await sync() } } }
     }
+    private func scheduleLectureStartRefresh() {
+        lectureStartTimer?.invalidate()
+        lectureStartTimer=nil
+        guard !loggedOut,!onboarding,
+              let next=(snapshot.lectures ?? []).compactMap({LectureStatus.date($0.row.Lecture.StartAt)}).filter({$0>Date()}).min() else {return}
+        scheduleLectureStartCheck(after:max(1,next.timeIntervalSinceNow))
+    }
+    private func scheduleLectureStartCheck(after delay:TimeInterval) {
+        lectureStartTimer=Timer.scheduledTimer(withTimeInterval:delay,repeats:false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self,!self.loggedOut,!self.onboarding else {return}
+                if self.busy {self.scheduleLectureStartCheck(after:30)}
+                else {await self.refresh()}
+            }
+        }
+    }
     func scheduledRefresh() {
         guard !busy, !onboarding, !loggedOut else { return }
         Task { if !onboarding && !loggedOut { await refresh(); if autoSync { await sync() } } }
@@ -146,6 +163,7 @@ import KLAPCore
     func logout() {
         guard !downloadState.running,!busy else { return }
         contentNotifications.clearDelivered()
+        lectureStartTimer?.invalidate();lectureStartTimer=nil
         downloadState=LectureDownloadState();downloadChoices=[];downloadSelection=[];downloadExisting=[];downloadPaths=[:];downloadTranscribed=[];downloadAccount=nil;showDownloads=false
         loggedOut=true
         UserDefaults.standard.set(true,forKey:"loggedOut")
@@ -233,7 +251,10 @@ import KLAPCore
             error = fresh.errors.isEmpty ? nil : fresh.errors.joined(separator: "\n")
             received = true
         }
-        if let notificationSnapshot {await contentNotifications.process(notificationSnapshot,preferences:{[self] in (newNoticeNotifications,newLectureNotifications)})}
+        if let notificationSnapshot {
+            await contentNotifications.process(notificationSnapshot,preferences:{[self] in (newNoticeNotifications,newLectureNotifications)})
+            scheduleLectureStartRefresh()
+        }
         message = received && error == nil ? "최신 상태입니다" : "갱신하지 못한 정보가 있습니다"
         return notificationSnapshot
     }

@@ -7,16 +7,7 @@ struct LectureDownloadsPage:View {
     private var courses:[String] {Array(Set(model.downloadChoices.map{$0.row.CourseName})).sorted()}
     var body:some View {
         VStack(alignment:.leading,spacing:12) {
-            HStack(alignment:.center) {
-                VStack(alignment:.leading,spacing:4) {
-                    Text("선택한 강의 \(model.downloadSelection.count)개").font(.headline)
-                    Text("다운로드된 강의는 선택에서 제외됩니다.").font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("다운로드") {Task {await model.downloadLectures()}}
-                    .buttonStyle(FormButtonStyle(prominent:true,compact:true))
-                    .disabled(model.downloadDirectory == nil || model.downloadSelection.isEmpty || model.downloadState.running || model.downloadScanning)
-            }
+            if model.downloadState.running {DownloadProgressView(model:model)}
             if model.downloadDirectory == nil {
                 Button("설정에서 저장 폴더 선택") {model.showDownloads=false;model.showSettings=true}
             }
@@ -33,7 +24,6 @@ struct LectureDownloadsPage:View {
                     }
                 }.disabled(model.downloadState.running)
             }
-            if model.downloadState.running {DownloadProgressView(model:model)}
             HStack(spacing:12) {
                 Button("전체 선택") {model.downloadSelection=Set(model.downloadChoices.map(\.id)).subtracting(model.downloadExisting)}
                 Button("선택 해제") {model.downloadSelection=[]}
@@ -102,5 +92,21 @@ struct LectureDownloadsPage:View {
                 if let fraction=state?.fraction {ProgressView(value:fraction)} else {ProgressView().controlSize(.small)}
             }
         }.padding(12).frame(maxWidth:.infinity,alignment:.leading).background(Theme.surface,in:RoundedRectangle(cornerRadius:12))
+    }
+}
+
+struct LectureDownloadActions:View {
+    @ObservedObject var model:AppModel
+    var body:some View {
+        HStack(alignment:.center) {
+            VStack(alignment:.leading,spacing:4) {
+                Text("선택한 강의 \(model.downloadSelection.count)개").font(.headline)
+                Text("다운로드된 강의는 선택에서 제외됩니다.").font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("다운로드") {Task {await model.downloadLectures()}}
+                .buttonStyle(FormButtonStyle(prominent:true,compact:true))
+                .disabled(model.downloadDirectory == nil || model.downloadSelection.isEmpty || model.downloadState.running || model.downloadScanning)
+        }
     }
 }

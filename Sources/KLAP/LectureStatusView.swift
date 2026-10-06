@@ -14,9 +14,9 @@ struct LectureStatusView: View {
             HStack(spacing:12) {
                 VStack(alignment:.leading,spacing:6) {
                     Text(lecture.Title).font(.system(size:13,weight:.semibold)).fixedSize(horizontal:false,vertical:true)
-                    if let due, due > context.date {
-                        Text(deadlineText(due)).font(.system(size:11))
-                            .foregroundStyle(LectureStatus.urgency(deadline:due,now:context.date) == 2 ? Color.red : LectureStatus.urgency(deadline:due,now:context.date) == 1 ? Color.orange : Color.secondary)
+                    if lecture.StartAt != nil || due != nil {
+                        Text(periodText(start:LectureStatus.date(lecture.StartAt),end:due)).font(.system(size:11))
+                            .foregroundStyle(LectureStatus.urgency(deadline:due ?? .distantFuture,now:context.date) == 2 ? Color.red : LectureStatus.urgency(deadline:due ?? .distantFuture,now:context.date) == 1 ? Color.orange : Color.secondary)
                     }
                 }
                 Spacer(minLength:8)
@@ -37,11 +37,16 @@ struct LectureStatusView: View {
             }.padding(12).background(Theme.surface,in:RoundedRectangle(cornerRadius:12))
         }
     }
-    private func deadlineText(_ date:Date) -> String {
+    private func periodText(start:Date?,end:Date?) -> String {
         let formatter=DateFormatter()
         formatter.locale=Locale(identifier:"ko_KR")
         formatter.timeZone=TimeZone(identifier:"Asia/Seoul")
-        formatter.dateFormat="~M월dd일 HH시 mm분까지"
-        return formatter.string(from:date)
+        formatter.dateFormat="M월 d일 HH:mm"
+        switch (start,end) {
+        case let (start?,end?): return "\(formatter.string(from:start)) ~ \(formatter.string(from:end))"
+        case let (start?,nil): return "\(formatter.string(from:start))부터"
+        case let (nil,end?): return "\(formatter.string(from:end))까지"
+        default: return ""
+        }
     }
 }

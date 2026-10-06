@@ -26,11 +26,17 @@ struct DashboardView: View {
                 }
             }
             if model.downloadState.running && !model.showDownloads {DownloadProgressView(model:model)}
+            if !model.onboarding && model.showDownloads {
+                VStack(alignment:.leading,spacing:12) {
+                    pageHeading("강의 다운로드") {model.showDownloads=false}
+                    LectureDownloadActions(model:model)
+                }
+                Divider()
+            }
             ScrollView {
                 VStack(alignment:.leading,spacing:12) {
                     if model.onboarding { OnboardingView(model:model,setup:model.setup) }
                     else if model.showDownloads {
-                        pageHeading("강의 다운로드") {model.showDownloads=false}
                         LectureDownloadsPage(model:model)
                     }
                     else if showAcademic {
@@ -107,7 +113,7 @@ struct DashboardView: View {
         .overlay {
             if let post=model.boardPresentation {
                 BoardOverlay(onClose:{ model.boardPresentation=nil }) {
-                    BoardDetailView(model:model,reference:post.reference,title:post.title,onClose:{ model.boardPresentation=nil })
+                    BoardDetailView(model:model,reference:post.reference,title:post.title,onPrevious:post.adjacent(-1).map {previous in {model.boardPresentation=previous}},onNext:post.adjacent(1).map {next in {model.boardPresentation=next}},onClose:{ model.boardPresentation=nil })
                         .id(post.id)
                 }
             }
@@ -264,12 +270,12 @@ struct DashboardView: View {
             if model.selectedCourse == nil { HStack {
                 Text("과목별 대시보드").font(.system(size:16,weight:.bold)).lineLimit(1)
                 Spacer()
+                if !model.eligibleIDs.isEmpty { Button("미수강 \(model.eligibleIDs.count)개 수강") { propose(model.eligibleIDs) }.disabled(model.busy).fixedSize() }
                 Button {model.openDownloads(model.snapshot.lectures ?? [])} label:{Label("다운로드",systemImage:"arrow.down.to.line")}.font(.caption).fixedSize()
                 Button { showAttendance=true } label: { Label("출석 조회",systemImage:"checkmark.circle") }.font(.caption).fixedSize()
             }
             }
             if model.selectedCourse == nil {
-                if !model.eligibleIDs.isEmpty { HStack { Spacer();Button("미수강 \(model.eligibleIDs.count)개 수강") { propose(model.eligibleIDs) }.disabled(model.busy) } }
                 ForEach(model.courses) { course in
                     Button { model.selectedCourse=course.name } label: {
                         HStack {

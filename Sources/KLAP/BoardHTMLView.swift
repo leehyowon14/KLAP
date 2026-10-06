@@ -11,7 +11,7 @@ struct BoardHTMLView: NSViewRepresentable {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .nonPersistent()
         config.defaultWebpagePreferences.allowsContentJavaScript = false
-        let view = WKWebView(frame: .zero, configuration: config)
+        let view = BoardWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
         view.setValue(false, forKey: "drawsBackground")
         return view
@@ -54,7 +54,7 @@ struct BoardHTMLView: NSViewRepresentable {
         }
         fragment.append(document.createTextNode(text.slice(offset))); node.replaceWith(fragment);
     }
-    Math.max(40,document.body.scrollHeight)
+    Math.ceil(Math.max(40,document.body.scrollHeight,document.documentElement.scrollHeight,document.body.getBoundingClientRect().bottom + parseFloat(getComputedStyle(document.body).marginBottom || 0)))
     """#
     final class Coordinator: NSObject, WKNavigationDelegate {
         var parent: BoardHTMLView
@@ -78,7 +78,7 @@ struct BoardHTMLView: NSViewRepresentable {
             // App-owned evaluation remains available with page JavaScript disabled.
             webView.evaluateJavaScript(BoardHTMLView.preparationScript) { [weak self] value, _ in
                 guard let self, let number = value as? NSNumber else { return }
-                self.parent.height = min(1600, max(40, CGFloat(number.doubleValue)))
+                self.parent.height = max(40, CGFloat(number.doubleValue).rounded(.up))
             }
         }
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -90,4 +90,26 @@ struct BoardHTMLView: NSViewRepresentable {
             }
         }
     }
+}
+
+/// The expanded HTML document scrolls with the surrounding detail page.
+final class BoardWebView:WKWebView {
+    private var scrollMonitor:Any?
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let scrollMonitor {NSEvent.removeMonitor(scrollMonitor);self.scrollMonitor=nil}
+        guard window != nil else {return}
+        scrollMonitor=NSEvent.addLocalMonitorForEvents(matching:.scrollWheel) { [weak self] event in
+            guard let self,self.forwardScroll(event) else {return event}
+            return nil
+        }
+    }
+    @discardableResult func forwardScroll(_ event:NSEvent)->Bool {
+        guard let window,event.window === window,
+              visibleRect.contains(convert(event.locationInWindow,from:nil)),
+              let scroll=enclosingScrollView else {return false}
+        scroll.scrollWheel(with:event)
+        return true
+    }
+    deinit {if let scrollMonitor {NSEvent.removeMonitor(scrollMonitor)}}
 }

@@ -37,6 +37,7 @@ public struct Lecture: Codable {
     public let Progress: String
     public let AchievedTime: String?
     public let RequiredTime: String?
+    public let StartAt: String?
     public let EndAt: String?
 }
 public struct LectureItem: Codable, Identifiable {

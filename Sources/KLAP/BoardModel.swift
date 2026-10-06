@@ -1,10 +1,22 @@
 import AppKit
 import KLAPCore
 
+struct BoardEntry {
+    let reference:BoardReference
+    let title:String
+}
+
 struct BoardPresentation: Identifiable {
     let reference: BoardReference
     let title: String
+    var entries:[BoardEntry]=[]
     var id: BoardReference { reference }
+    func adjacent(_ offset:Int)->BoardPresentation? {
+        guard let index=entries.firstIndex(where:{$0.reference==reference}),entries.indices.contains(index+offset) else {return nil}
+        let entry=entries[index+offset]
+        guard entry.reference.Kind==reference.Kind,entry.reference.TermValue==reference.TermValue,entry.reference.SubjectID==reference.SubjectID else {return nil}
+        return BoardPresentation(reference:entry.reference,title:entry.title,entries:entries)
+    }
 }
 
 extension AppModel {
