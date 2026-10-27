@@ -32,7 +32,7 @@ import KLAPCore
     let downloadInventoryBridge=BridgeClient()
     var downloadAccount:String?
     let attachments = AttachmentManager()
-    let contentNotifications = ContentNotificationService()
+    let contentNotifications: ContentNotificationService
     @Published var studyConfirmationPresented=false
     @Published var newNoticeNotifications = UserDefaults.standard.object(forKey:"newNoticeNotifications") as? Bool ?? true {
         didSet {UserDefaults.standard.set(newNoticeNotifications,forKey:"newNoticeNotifications");if newNoticeNotifications {requestNotifications()}}
@@ -57,6 +57,7 @@ import KLAPCore
     @Published var busy = false
     @Published var pendingDecisions: [String:String] = [:]
     @Published var studying = false
+    @Published var studyError: String?
     @Published var message = "KLAS에 연결해 주세요"
     @Published var error: String?
     @Published var progress: StudyProgress?
@@ -106,7 +107,8 @@ import KLAPCore
     }
     let setup = SetupModel()
     @Published var onboarding = !UserDefaults.standard.bool(forKey: "onboardingComplete")
-    private let bridge = BridgeClient()
+    private let bridge: BridgeClient
+    private let studyBridge: BridgeClient
     private let reminderCompletion = ReminderCompletion()
     @Published var reminderCompletionError: String?
     private var completionTasks: [Task<Void,Never>] = []
@@ -123,6 +125,13 @@ import KLAPCore
     var courses: [Course] { snapshot.timetable?.Term.subjList ?? [] }
     var lectures: [LectureItem] { (snapshot.lectures ?? []).filter { selectedCourse == nil || $0.row.CourseName == selectedCourse } }
     var eligibleIDs: [String] { lectures.filter { $0.reason.isEmpty }.map(\.id) }
+
+    init(bridge: BridgeClient? = nil, studyBridge: BridgeClient? = nil,
+         contentNotifications: ContentNotificationService? = nil) {
+        self.bridge = bridge ?? BridgeClient()
+        self.studyBridge = studyBridge ?? BridgeClient()
+        self.contentNotifications = contentNotifications ?? ContentNotificationService()
+    }
 
     func start() {
         contentNotifications.register()
@@ -161,7 +170,7 @@ import KLAPCore
         Task { if !onboarding && !loggedOut { await refresh(); if autoSync { await sync() } } }
     }
     func logout() {
-        guard !downloadState.running,!busy else { return }
+        guard !downloadState.running,!busy,!studying else { return }
         contentNotifications.clearDelivered()
         lectureStartTimer?.invalidate();lectureStartTimer=nil
         downloadState=LectureDownloadState();downloadChoices=[];downloadSelection=[];downloadExisting=[];downloadPaths=[:];downloadTranscribed=[];downloadAccount=nil;showDownloads=false
@@ -179,7 +188,7 @@ import KLAPCore
         UserDefaults.standard.set(true, forKey: "onboardingComplete")
     }
     func saveDestinations() async -> Bool {
-        guard !busy, setup.ready else { return false }
+        guard !busy, !studying, setup.ready else { return false }
         let configuration=DestinationConfiguration(
             timetable:setup.timetable,academic:setup.academic,reminder:setup.reminder,
             newTimetable:setup.newTimetable,newAcademic:setup.newAcademic,newReminder:setup.newReminder
@@ -218,10 +227,10 @@ import KLAPCore
         do {
             try await bridge.run(request) { [weak self] event in
                 guard let self else { return }
-                if event.kind == "error" { if !(self.studying && self.cancelled) { self.error = event.error }; return }
+                if event.kind == "error" { self.error = event.error; return }
                 do { try handle(event) } catch { self.error = "응답을 읽지 못했습니다: \(error.localizedDescription)" }
             }
-        } catch { if self.error == nil && !(studying && cancelled) { self.error = error.localizedDescription } }
+        } catch { if self.error == nil { self.error = error.localizedDescription } }
     }
     @discardableResult func refresh() async -> Snapshot? {
         guard !busy else { return nil }
@@ -259,6 +268,7 @@ import KLAPCore
         return notificationSnapshot
     }
     @discardableResult func login(studentID: String, password: String) async -> Bool {
+        guard !studying else {error="수강 종료 후 계정을 변경해 주세요";return false}
         guard !downloadState.running else {error="다운로드 완료 후 계정을 변경해 주세요";return false}
         guard !busy else { return false }
         var succeeded = false
@@ -268,35 +278,38 @@ import KLAPCore
     }
     func resolveConflict(_ key:String, decision:String) async {
         pendingDecisions[key]=decision
-        if !busy { await flushDecisions() }
+        if !busy && !studying { await flushDecisions() }
     }
     private func flushDecisions() async {
-        guard !busy, !pendingDecisions.isEmpty else { return }
+        guard !busy, !studying, !pendingDecisions.isEmpty else { return }
         let decisions=pendingDecisions
-        await sync(decisions:decisions)
-        if error == nil {
+        if await sync(decisions:decisions) {
             for (key,value) in decisions where pendingDecisions[key] == value { pendingDecisions.removeValue(forKey:key) }
         }
     }
-    func sync(decisions: [String: String] = [:]) async {
-        guard !busy, !loggedOut else { return }
-        guard UserDefaults.standard.bool(forKey: "destinationsConfigured") else { onboarding=true;setup.step=1;return }
+    @discardableResult func sync(decisions: [String: String] = [:]) async -> Bool {
+        guard !busy, !studying, !loggedOut else { return false }
+        guard UserDefaults.standard.bool(forKey: "destinationsConfigured") else { onboarding=true;setup.step=1;return false }
         await setup.requestAccess(request:false)
+        guard !busy, !studying else { return false }
         guard setup.ready else {
             message="동기화하려면 캘린더와 미리 알림 권한을 허용해 주세요."
-            error=nil;showSettings=true;return
+            error=nil;showSettings=true;return false
         }
         message = "캘린더와 미리 알림 동기화 중…"
         var succeeded = false
+        var applied = false
         await perform(["Command":"sync", "Decisions":decisions]) { [self] event in
             guard event.kind == "result" else { return }
             let result = try event.decode(SyncResult.self)
             conflicts = result.conflicts ?? []
             error = result.errors.isEmpty ? nil : result.errors.joined(separator: "\n")
-            succeeded = error == nil && conflicts.isEmpty
+            applied = error == nil
+            succeeded = applied && conflicts.isEmpty
             if succeeded { lastSync = Date() }
         }
         message = succeeded ? "일정 동기화 완료" : "동기화 결과를 확인해 주세요"
+        return applied
     }
     func openLecture(_ id: String) async {
         await perform(["Command":"open", "ID":id]) { event in
@@ -305,50 +318,68 @@ import KLAPCore
         }
     }
     func attend(_ ids: [String],expectedAccount:String?=nil) async {
-        guard !busy, !ids.isEmpty else { return }
+        guard !busy, !studying else { return }
+        let ids=ids.reduce(into:[String]()) { if !$1.isEmpty && !$0.contains($1) { $0.append($1) } }
+        guard !ids.isEmpty else { return }
         reminderCompletionError=nil
+        studyError=nil
         cancelled = false; studying = true; requestNotifications()
-        studyQueue=ids.reduce(into:[]) { if !$0.contains($1) { $0.append($1) } }
+        studyQueue=ids
         updateStudyTime(id:studyQueue.first)
         progress = StudyProgress(percent: 0, current: 0, total: ids.count)
-        await perform(["Command":"attend", "IDs":ids,"ExpectedAccount":expectedAccount ?? snapshot.account ?? ""]) { [self] event in
-            let value = try event.decode(StudyEvent.self)
-            let title = value.title ?? snapshot.lectures?.first(where: { $0.id == value.id })?.row.Lecture.Title ?? "강의"
-            switch event.kind {
-            case "start":
-                updateStudyTime(id:value.id)
-                studyTitle = title
-                progress = StudyProgress(percent: 0, current: value.current ?? 0, total: value.total ?? ids.count)
-                if (value.current ?? 0) > 1 { notify("다음 강의 수강 시작", "\(title) · \(progress?.label ?? "")") }
-            case "progress":
-                updateStudyTime(id:value.id,achieved:value.achieved,required:value.required)
-                studyTitle = title
-                progress = StudyProgress(percent: value.percent ?? 0, current: value.current ?? 0, total: value.total ?? ids.count)
-            case "completed":
-                if let id=value.id, UserDefaults.standard.bool(forKey:"destinationsConfigured"),
-                   let list=UserDefaults.standard.string(forKey:"destinationReminder") {
-                    completionTasks.append(Task { [self] in
-                        do { try await self.reminderCompletion.complete(lectureID:id,listName:list) }
-                        catch { self.reminderCompletionError="수강은 완료됐지만 미리 알림 완료 처리에 실패했습니다: " + error.localizedDescription }
-                    })
-                }
-                notify("수강 완료", "\(title) · \(value.current ?? 0)/\(value.total ?? ids.count)")
-            case "failed": notify("수강 확인 필요", "\(title): \(value.message ?? "실패")"); message = value.message ?? "수강 실패"
-            case "done":
-                message = "수강 종료 · 성공 \(value.success ?? 0), 실패 \(value.failed ?? 0)"
-                notify("수강 작업 종료", message)
-            default: break
+        var summary = "수강 작업이 종료되었습니다"
+        do {
+            try await studyBridge.run(["Command":"attend", "IDs":ids,"ExpectedAccount":expectedAccount ?? snapshot.account ?? ""]) { [self] event in
+                // Cancellation may race with buffered progress/completion events.
+                guard !cancelled else { return }
+                if event.kind == "error" { studyError=event.error; return }
+                do {
+                    let value = try event.decode(StudyEvent.self)
+                    let title = value.title ?? snapshot.lectures?.first(where: { $0.id == value.id })?.row.Lecture.Title ?? "강의"
+                    switch event.kind {
+                    case "start":
+                        updateStudyTime(id:value.id)
+                        studyTitle = title
+                        progress = StudyProgress(percent: 0, current: value.current ?? 0, total: value.total ?? ids.count)
+                        if (value.current ?? 0) > 1 { notify("다음 강의 수강 시작", "\(title) · \(progress?.label ?? "")") }
+                    case "progress":
+                        updateStudyTime(id:value.id,achieved:value.achieved,required:value.required)
+                        studyTitle = title
+                        progress = StudyProgress(percent: value.percent ?? 0, current: value.current ?? 0, total: value.total ?? ids.count)
+                    case "completed":
+                        if let id=value.id, UserDefaults.standard.bool(forKey:"destinationsConfigured"),
+                           let list=UserDefaults.standard.string(forKey:"destinationReminder") {
+                            completionTasks.append(Task { [self] in
+                                do { try await self.reminderCompletion.complete(lectureID:id,listName:list) }
+                                catch { self.reminderCompletionError="수강은 완료됐지만 미리 알림 완료 처리에 실패했습니다: " + error.localizedDescription }
+                            })
+                        }
+                        notify("수강 완료", "\(title) · \(value.current ?? 0)/\(value.total ?? ids.count)")
+                    case "failed":
+                        summary = value.message ?? "수강 실패"; message = summary
+                        notify("수강 확인 필요", "\(title): \(summary)")
+                    case "done":
+                        summary = "수강 종료 · 성공 \(value.success ?? 0), 실패 \(value.failed ?? 0)"; message = summary
+                        notify("수강 작업 종료", summary)
+                    default: break
+                    }
+                } catch { studyError="응답을 읽지 못했습니다: \(error.localizedDescription)" }
             }
-        }
+        } catch { if studyError == nil && !cancelled { studyError=error.localizedDescription } }
         for task in completionTasks { await task.value }
         completionTasks=[]
-        studying = false; progress = nil
-        if cancelled { message = "수강을 취소했습니다" }
-        else if let error { notify("수강 작업 중단", error) }
+        if cancelled { summary = "수강을 취소했습니다" }
+        else if let studyError { summary="수강 작업 중단: \(studyError)"; notify("수강 작업 중단", studyError) }
         // Refresh server state without replacing the final job summary.
-        let summary = message
+        message = summary
         await refresh(); message = summary
+        // Keep the duplicate/account guards until this job's cleanup is finished.
+        studying = false; progress = nil
         await flushDecisions()
     }
-    func cancel() { cancelled = true; bridge.cancel() }
+    func cancel() {
+        guard studying else { return }
+        cancelled = true
+        studyBridge.cancel()
+    }
 }
