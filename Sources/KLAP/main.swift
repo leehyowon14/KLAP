@@ -42,7 +42,7 @@ import KLAPCore
         }
     }
 
-    func applicationWillTerminate(_ notification: Notification) { if didInitializeModel { model.cancel();model.cancelDownloads() } }
+    func applicationWillTerminate(_ notification: Notification) { if didInitializeModel { model.cancelAllProcesses() } }
     @objc private func toggle() {
         guard let item, let panel else { return }
         if NSApp.currentEvent?.type == .rightMouseUp, let button=item.button {

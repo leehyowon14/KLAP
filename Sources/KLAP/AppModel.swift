@@ -117,6 +117,7 @@ import KLAPCore
     private let network = NWPathMonitor()
     private var wasOffline = false
     private var cancelled = false
+    private var terminating = false
     var reveal: (() -> Void)?
     @Published var notificationNavigation=UUID()
     var pendingContentActions:[(String,String)]=[]
@@ -221,7 +222,7 @@ import KLAPCore
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
     func perform(_ request: [String: Any], handle: @escaping (BridgeEvent) throws -> Void) async {
-        guard !busy else { return }
+        guard !busy, !terminating else { return }
         busy = true; error = nil
         defer { busy = false }
         do {
@@ -233,7 +234,7 @@ import KLAPCore
         } catch { if self.error == nil { self.error = error.localizedDescription } }
     }
     @discardableResult func refresh() async -> Snapshot? {
-        guard !busy else { return nil }
+        guard !busy, !terminating else { return nil }
         loggedOut=false
         UserDefaults.standard.set(false,forKey:"loggedOut")
         message = "수업과 강의를 불러오는 중…"
@@ -288,10 +289,10 @@ import KLAPCore
         }
     }
     @discardableResult func sync(decisions: [String: String] = [:]) async -> Bool {
-        guard !busy, !studying, !loggedOut else { return false }
+        guard !busy, !studying, !loggedOut, !terminating else { return false }
         guard UserDefaults.standard.bool(forKey: "destinationsConfigured") else { onboarding=true;setup.step=1;return false }
         await setup.requestAccess(request:false)
-        guard !busy, !studying else { return false }
+        guard !busy, !studying, !terminating else { return false }
         guard setup.ready else {
             message="동기화하려면 캘린더와 미리 알림 권한을 허용해 주세요."
             error=nil;showSettings=true;return false
@@ -323,7 +324,7 @@ import KLAPCore
     // Reserve the study lane synchronously so notification navigation can continue
     // without waiting for the whole study queue or allowing another start.
     @discardableResult func startAttendance(_ ids: [String],expectedAccount:String?=nil) -> Task<Void,Never>? {
-        guard !busy, !studying else { return nil }
+        guard !busy, !studying, !terminating else { return nil }
         let ids=ids.reduce(into:[String]()) { if !$1.isEmpty && !$0.contains($1) { $0.append($1) } }
         guard !ids.isEmpty else { return nil }
         reminderCompletionError=nil
@@ -392,5 +393,12 @@ import KLAPCore
         guard studying else { return }
         cancelled = true
         studyBridge.cancel()
+    }
+    func cancelAllProcesses() {
+        terminating = true
+        cancel()
+        bridge.cancel()
+        cancelDownloads()
+        downloadInventoryBridge.cancel()
     }
 }

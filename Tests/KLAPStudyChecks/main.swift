@@ -282,7 +282,24 @@ func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
     expect(requests("attend").count == notificationCount+1 && model.studyError == nil,"Notification cancellation neither fails nor replays rejected starts")
     await model.resolveConflict("unsent",decision:"keep")
     expect(model.pendingDecisions["unsent"] == "keep" && requests("sync").isEmpty,"Skipped sync cannot discard queued decisions")
-    print("Study checks passed: concurrent notices/materials/attachments/pages/refresh, duplicate and account guards, cancellation isolation, late events, cleanup, failures, SIGKILL, restart, immediate cancel and notification navigation/start isolation")
+
+    let terminatingStudy=model.startAttendance(["hold"])!
+    try await waitUntil("study before app termination") {model.progress?.fraction == 0.25}
+    try flag("hold-detail")
+    let terminationQueries=requests("board-detail").count
+    let terminatingQuery=Task {try await model.boardValue("board-detail",reference:reference,as:BoardDetail.self)}
+    try await waitUntil("query before app termination") {requests("board-detail").count > terminationQueries}
+    let terminationSnapshots=requests("snapshot").count
+    model.cancelAllProcesses()
+    model.cancelAllProcesses()
+    await terminatingStudy.value
+    if case .success = await terminatingQuery.result {fatalError("Termination must cancel the foreground process too")}
+    expect(!model.studying && !model.busy && model.studyError == nil,"App termination cancels both lanes and releases their state")
+    expect(requests("snapshot").count == terminationSnapshots,"Study cleanup cannot launch another process during app termination")
+    expect(model.startAttendance(["finish"]) == nil,"App termination prevents new studies")
+    let afterTermination=await model.refresh()
+    expect(afterTermination == nil && model.pendingDecisions["unsent"] == "keep","Termination prevents new queries and preserves unsent decisions")
+    print("Study checks passed: concurrent notices/materials/attachments/pages/refresh, duplicate and account guards, cancellation isolation, late events, cleanup, failures, SIGKILL, restart, immediate cancel, notification navigation/start isolation and app termination")
 }
 
 Task { @MainActor in
