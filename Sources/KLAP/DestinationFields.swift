@@ -32,7 +32,7 @@ struct DestinationSettings: View {
     var body:some View {
         VStack(alignment:.leading,spacing:12) {
             if setup.ready {
-                DestinationFields(setup:setup).disabled(model.busy)
+                DestinationFields(setup:setup).disabled(model.busy || model.studying)
                 HStack {
                     if saved { Label("등록 위치를 저장했습니다",systemImage:"checkmark.circle").font(.caption).foregroundStyle(.secondary) }
                     if !saved, let date=model.lastSync {
@@ -40,11 +40,11 @@ struct DestinationSettings: View {
                     }
                     Spacer()
                     Button("저장") { Task { saved=await model.saveDestinations(); saveError = saved ? nil : model.error } }
-                        .buttonStyle(FormButtonStyle(prominent:true,compact:true)).disabled(model.busy)
+                        .buttonStyle(FormButtonStyle(prominent:true,compact:true)).disabled(model.busy || model.studying)
                 }
             } else {
                 Button(setup.loading ? "불러오는 중…" : "캘린더·미리 알림 권한 요청") { Task { await setup.requestAccess() } }
-                    .disabled(setup.loading || model.busy)
+                    .disabled(setup.loading || model.busy || model.studying)
                 HStack {
                     if !setup.calendarAllowed {Button("캘린더 권한 설정") {setup.openPrivacySettings()}}
                     if !setup.reminderAllowed {Button("미리 알림 권한 설정") {setup.openPrivacySettings(reminders:true)}}

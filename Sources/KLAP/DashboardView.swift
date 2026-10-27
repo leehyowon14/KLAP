@@ -25,6 +25,10 @@ struct DashboardView: View {
                 Button { model.showDownloads=false;showAcademic=false;showAttendance=false;showChanges=false;model.showSettings.toggle() } label: { Image(systemName:"gearshape") }.buttonStyle(.plain).frame(width:28,height:28).disabled(model.onboarding).help("설정").accessibilityLabel("설정")
                 }
             }
+            if model.studying { studyProgress }
+            if let error=model.studyError {
+                Label(error,systemImage:"exclamationmark.triangle").font(.caption).foregroundStyle(.orange).textSelection(.enabled)
+            }
             if model.downloadState.running && !model.showDownloads {DownloadProgressView(model:model)}
             if !model.onboarding && model.showDownloads {
                 VStack(alignment:.leading,spacing:12) {
@@ -65,7 +69,6 @@ struct DashboardView: View {
                                 Spacer();Image(systemName:"chevron.right").font(.caption).foregroundStyle(.secondary)
                             }.padding(14).frame(maxWidth:.infinity,alignment:.leading).background(Theme.surface,in:RoundedRectangle(cornerRadius:12))
                         }.buttonStyle(.plain)
-                        if model.studying { studyProgress }
                         courseContent
                     }
                     else {
@@ -86,7 +89,6 @@ struct DashboardView: View {
                     if let error=model.reminderCompletionError {
                         Label(error,systemImage:"exclamationmark.triangle").font(.callout).foregroundStyle(.red)
                     }
-                    if model.studying { studyProgress }
                     if model.courses.isEmpty {
                         VStack(alignment:.leading,spacing:8) {
                             Text("수업을 연결해 보세요").font(.headline)
@@ -104,7 +106,7 @@ struct DashboardView: View {
                     if let date=model.lastRefresh { Text("조회 \(date.formatted(date:.omitted,time:.shortened))").foregroundStyle(.secondary) }
                 }.font(.caption).foregroundStyle(.secondary).help(model.message).layoutPriority(-1)
                 Spacer()
-                if !model.onboarding { Button("동기화") { Task { await model.sync() } }.buttonStyle(.borderless).disabled(model.busy) }
+                if !model.onboarding { Button("동기화") { Task { await model.sync() } }.buttonStyle(.borderless).disabled(model.busy || model.studying) }
                 Button { if model.studying { model.cancel() }; if model.downloadState.running {model.cancelDownloads()}; NSApp.terminate(nil) } label: { Label("종료", systemImage: "power") }.buttonStyle(.borderless).fixedSize().help("KLAP 종료").accessibilityLabel("KLAP 종료")
             }
         }.tint(Theme.accent).foregroundStyle(Theme.ink).buttonStyle(FormButtonStyle(compact:true)).padding(20).frame(maxWidth:.infinity,maxHeight:.infinity)
@@ -135,7 +137,7 @@ struct DashboardView: View {
                                 let ids=proposedIDs
                                 model.studyConfirmationPresented=false
                                 Task { await model.attend(ids) }
-                            }.buttonStyle(FormButtonStyle(prominent:true,compact:true)).keyboardShortcut(.defaultAction)
+                            }.buttonStyle(FormButtonStyle(prominent:true,compact:true)).disabled(model.busy || model.studying).keyboardShortcut(.defaultAction)
                         }
                     }.padding(20).frame(width:300)
                         .background(Theme.surface,in:RoundedRectangle(cornerRadius:16))
@@ -150,7 +152,7 @@ struct DashboardView: View {
             Text("KLAS 로그인").font(.headline)
             TextField("학번",text:$studentID).modifier(AccountFieldStyle())
             PasswordField(placeholder:"비밀번호",text:$password)
-            HStack { Button("로그인") { let secret=password;password="";Task {await model.login(studentID:studentID,password:secret)} }.disabled(model.busy || studentID.trimmingCharacters(in:.whitespaces).isEmpty || password.isEmpty);Button("닫기") {password="";model.showLogin=false} }
+            HStack { Button("로그인") { let secret=password;password="";Task {await model.login(studentID:studentID,password:secret)} }.disabled(model.busy || model.studying || studentID.trimmingCharacters(in:.whitespaces).isEmpty || password.isEmpty);Button("닫기") {password="";model.showLogin=false} }
             Text("비밀번호는 CLI의 OS 보안 저장소에 저장됩니다.").font(.caption2).foregroundStyle(.secondary)
         }.padding(12).background(.quaternary.opacity(0.3),in:RoundedRectangle(cornerRadius:10))
     }
@@ -182,7 +184,7 @@ struct DashboardView: View {
                 Text("계정").font(.headline)
                 settingsRow(!model.loggedOut && model.snapshot.timetable != nil ? "계정 변경" : "계정 로그인",icon:"person.crop.circle") { model.showSettings=false;model.showLogin=true;model.selectedCourse=nil }
                 Rectangle().fill(Theme.line).frame(height:1)
-                Button("로그아웃",role:.destructive) { model.logout() }.buttonStyle(.plain).foregroundStyle(Theme.accent).disabled(model.busy)
+                Button("로그아웃",role:.destructive) { model.logout() }.buttonStyle(.plain).foregroundStyle(Theme.accent).disabled(model.busy || model.studying)
                 Text("자동 갱신을 중단합니다. CLI 저장 계정과 기존 일정은 유지됩니다.").font(.caption).foregroundStyle(.secondary)
             }.frame(maxWidth:.infinity,alignment:.leading).padding(16).background(Theme.surface,in:RoundedRectangle(cornerRadius:14))
         }.font(.callout)
@@ -191,7 +193,7 @@ struct DashboardView: View {
         Button(action:action) {
             HStack { Label(title,systemImage:icon);Spacer();Image(systemName:"chevron.right").font(.caption) }
                 .frame(minHeight:32).contentShape(Rectangle())
-        }.buttonStyle(.plain).disabled(model.busy)
+        }.buttonStyle(.plain).disabled(model.busy || model.studying)
     }
     private var studyProgress: some View {
         VStack(alignment:.leading,spacing:6) {
@@ -255,7 +257,7 @@ struct DashboardView: View {
                         Spacer(minLength:0)
                         Button("KLAS 값 적용") {Task {await model.resolveConflict(conflict.Key,decision:"apply")}}
                             .buttonStyle(FormButtonStyle(prominent:true,compact:true))
-                    }.disabled(model.busy && !model.studying)
+                    }.disabled(model.busy)
                     if let decision=model.pendingDecisions[conflict.Key] {
                         Label("\(decision == "keep" ? "기존 항목 유지" : "KLAS 값 적용") 선택됨 · 수강 종료 후 반영",systemImage:"clock")
                             .font(.caption).foregroundStyle(.secondary)
@@ -270,7 +272,7 @@ struct DashboardView: View {
             if model.selectedCourse == nil { HStack {
                 Text("과목별 대시보드").font(.system(size:16,weight:.bold)).lineLimit(1)
                 Spacer()
-                if !model.eligibleIDs.isEmpty { Button("미수강 \(model.eligibleIDs.count)개 수강") { propose(model.eligibleIDs) }.disabled(model.busy).fixedSize() }
+                if !model.eligibleIDs.isEmpty { Button("미수강 \(model.eligibleIDs.count)개 수강") { propose(model.eligibleIDs) }.disabled(model.busy || model.studying).fixedSize() }
                 Button {model.openDownloads(model.snapshot.lectures ?? [])} label:{Label("다운로드",systemImage:"arrow.down.to.line")}.font(.caption).fixedSize()
                 Button { showAttendance=true } label: { Label("출석 조회",systemImage:"checkmark.circle") }.font(.caption).fixedSize()
             }
@@ -294,7 +296,7 @@ struct DashboardView: View {
                 HStack {
                     Text("강의").font(.system(size:16,weight:.bold))
                     Spacer()
-                    if !model.eligibleIDs.isEmpty { Button("미수강 \(model.eligibleIDs.count)개 수강") { propose(model.eligibleIDs) }.disabled(model.busy) }
+                    if !model.eligibleIDs.isEmpty { Button("미수강 \(model.eligibleIDs.count)개 수강") { propose(model.eligibleIDs) }.disabled(model.busy || model.studying) }
                     Button {model.openDownloads(model.lectures)} label:{Label("다운로드",systemImage:"arrow.down.to.line")}.font(.caption).fixedSize()
                 }.padding(.top,12)
                 ForEach(model.lectures) { item in
