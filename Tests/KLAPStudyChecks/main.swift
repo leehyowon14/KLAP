@@ -71,8 +71,10 @@ func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
     elif command == "snapshot":
         if (root / "hold-snapshot").exists():
             gate("release-snapshot")
+        lecture = dict(row=dict(ID=address("lecture", "2026,2", "course", "one"), CourseName="과목",
+                           Lecture=dict(Title="강의", Progress="0")), reason="")
         emit("result", dict(account="account", timetable=dict(Term=dict(label="2026-2", value="2026,2",
-             subjList=[dict(name="과목", value="course")]), Entries=[]), notices=[notice], errors=[]))
+                 subjList=[dict(name="과목", value="course")]), Entries=[]), notices=[notice], lectures=[lecture], errors=[]))
     elif command == "board-list":
         emit("result", [notice["Notice"]])
     elif command == "board-detail":
@@ -109,6 +111,22 @@ func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
             (try? JSONSerialization.jsonObject(with:Data($0.utf8))) as? [String:Any]
         }.filter { $0["Command"] as? String == command }
     }
+    func address(_ kind:String,_ parts:String...) -> String {
+        kind+":v1:"+parts.map {Data($0.utf8).base64EncodedString().replacingOccurrences(of:"+",with:"-").replacingOccurrences(of:"/",with:"_").replacingOccurrences(of:"=",with:"")}.joined(separator:":")
+    }
+    let noticeID=address("notice","2026,2","course","board","master")
+    let lectureID=address("lecture","2026,2","course","one")
+    let table:[String:Any]=["Term":["label":"2026-2","value":"2026,2","subjList":[["name":"과목","value":"course"]]],"Entries":[]]
+    var seed:[String:Any]=["account":"account","timetable":table,"notices":[],"lectures":[],"errors":[]]
+    func snapshotFixture() throws -> Snapshot {try JSONDecoder().decode(Snapshot.self,from:JSONSerialization.data(withJSONObject:seed))}
+    var history=ContentNotificationHistory()
+    history.ingest(try snapshotFixture(),notices:true,lectures:true)
+    seed["notices"]=[["ID":noticeID,"CourseName":"과목","Notice":["Title":"공지","BoardNo":"board","MasterNo":"master"]]]
+    seed["lectures"]=[["row":["ID":lectureID,"CourseName":"과목","Lecture":["Title":"강의","Progress":"0"]],"reason":""]]
+    history.ingest(try snapshotFixture(),notices:true,lectures:true)
+    let noticeAlert=history.alerts.first {$0.kind == .notice}!
+    let lectureAlert=history.alerts.first {$0.kind == .lecture}!
+    UserDefaults.standard.set(try JSONEncoder().encode(history),forKey:"contentNotifications.v1")
     let notifications=ContentNotificationService(readAuthorization:{.denied},authorize:{fatalError("No system permission prompts in checks")},submitNotification:{_ in fatalError("No system notifications in checks")})
     let model=AppModel(bridge:BridgeClient(executableURL:executable),studyBridge:BridgeClient(executableURL:executable),contentNotifications:notifications)
     model.onboarding=false
@@ -149,7 +167,7 @@ func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
     }
     expect(String(data:attachmentBytes,encoding:.utf8) == "attachment","Attachment preview data streams during study")
     let refreshed=await model.refresh()
-    expect(refreshed != nil,"Refresh succeeds during study")
+    expect(refreshed != nil,"Refresh succeeds during study: \(model.error ?? "no error")")
     expect(model.progress?.fraction == 0.25 && model.studyTitle == "hold","Queries preserve study progress")
     model.logout()
     expect(!model.loggedOut,"Logout is blocked during study")
@@ -230,9 +248,41 @@ func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
     model.cancel()
     _ = try await model.boardValue("board-detail",reference:reference,as:BoardDetail.self)
     expect(model.error == nil,"An idle cancel is harmless")
+
+    let beforeImmediateCancel=requests("attend").count
+    let immediate=model.startAttendance(["hold"])!
+    expect(model.studying,"Notification start reserves the study lane immediately")
+    expect(model.startAttendance(["duplicate"]) == nil,"A reserved study rejects another start before process launch")
+    model.cancel()
+    await immediate.value
+    expect(requests("attend").count == beforeImmediateCancel && model.studyError == nil && !model.studying,"Immediate cancellation prevents process launch and permits reuse")
+
+    let fromDashboard=Task {await model.attend(["hold"])}
+    try await waitUntil("study before notice notification") {model.progress?.fraction == 0.25}
+    model.receiveContentAction(token:noticeAlert.id,action:ContentNotificationService.open)
+    try await waitUntil("notice navigation during dashboard study") {model.boardPresentation != nil && !model.handlingContentAction}
+    expect(model.studying && model.boardPresentation?.reference.BoardNo == "board","A notice notification opens during a dashboard-started study")
+    let notificationCount=requests("attend").count
+    for action in [ContentNotificationService.startOne,ContentNotificationService.startAll] {
+        model.receiveContentAction(token:lectureAlert.id,action:action)
+    }
+    expect(model.pendingContentActions.isEmpty && requests("attend").count == notificationCount,"Study notifications are rejected immediately instead of queued for a later duplicate")
+    model.cancel()
+    await fromDashboard.value
+    model.boardPresentation=nil
+
+    model.receiveContentAction(token:lectureAlert.id,action:ContentNotificationService.startOne)
+    try await waitUntil("notification-started study") {model.progress?.fraction == 0.25 && !model.handlingContentAction}
+    expect(requests("attend").count == notificationCount+1,"A notification starts exactly one study after cancellation")
+    model.receiveContentAction(token:noticeAlert.id,action:ContentNotificationService.open)
+    try await waitUntil("notice navigation during notification study") {model.boardPresentation != nil && !model.handlingContentAction}
+    expect(model.studying,"Notification-started studies do not block later notice notifications")
+    model.cancel()
+    try await waitUntil("notification study cancellation") {!model.studying}
+    expect(requests("attend").count == notificationCount+1 && model.studyError == nil,"Notification cancellation neither fails nor replays rejected starts")
     await model.resolveConflict("unsent",decision:"keep")
     expect(model.pendingDecisions["unsent"] == "keep" && requests("sync").isEmpty,"Skipped sync cannot discard queued decisions")
-    print("Study checks passed: concurrent notices/materials/attachments/pages/refresh, duplicate and account guards, cancellation isolation, late events, cleanup, failures, SIGKILL and restart")
+    print("Study checks passed: concurrent notices/materials/attachments/pages/refresh, duplicate and account guards, cancellation isolation, late events, cleanup, failures, SIGKILL, restart, immediate cancel and notification navigation/start isolation")
 }
 
 Task { @MainActor in

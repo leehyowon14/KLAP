@@ -7,6 +7,10 @@ extension AppModel {
         guard action != UNNotificationDismissActionIdentifier else {return}
         let valid=[UNNotificationDefaultActionIdentifier,ContentNotificationService.open,ContentNotificationService.startOne,ContentNotificationService.startAll]
         guard valid.contains(action),activeContentAction != token,!pendingContentActions.contains(where:{$0.0==token && $0.1==action}) else {return}
+        if studying && (action == ContentNotificationService.startOne || action == ContentNotificationService.startAll) {
+            message="이미 수강 중입니다. 현재 수강이 끝난 뒤 다시 시작해 주세요."
+            return
+        }
         pendingContentActions.append((token,action))
         reveal?()
         guard !handlingContentAction else {return}
@@ -14,7 +18,7 @@ extension AppModel {
         Task { @MainActor in
             defer {handlingContentAction=false}
             while !pendingContentActions.isEmpty {
-                while busy || studying {try? await Task.sleep(nanoseconds:200_000_000)}
+                while busy {try? await Task.sleep(nanoseconds:200_000_000)}
                 let request=pendingContentActions.removeFirst()
                 activeContentAction=request.0
                 await executeContentAction(token:request.0,action:request.1)
@@ -37,7 +41,9 @@ extension AppModel {
             guard alert.kind == .lecture else {return}
             let ids=contentNotifications.history.eligibleIDs(for:alert,in:fresh)
             guard !ids.isEmpty else {message="지금 수강할 수 있는 강의가 없습니다. 완료 여부와 수강 기간을 확인해 주세요.";return}
-            await attend(ids,expectedAccount:alert.account)
+            if startAttendance(ids,expectedAccount:alert.account) == nil {
+                message="현재 작업을 마친 뒤 수강을 다시 시작해 주세요."
+            }
         } else if alert.kind == .notice,alert.ids.count==1,
                   let row=fresh.notices?.first(where:{$0.id==alert.ids[0]}),let address=ContentAddress(row.id) {
             let entries=(fresh.notices ?? []).filter {ContentAddress($0.id)?.course==address.course && ContentAddress($0.id)?.term==address.term}.sorted {

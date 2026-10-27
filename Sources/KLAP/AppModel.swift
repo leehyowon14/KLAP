@@ -318,18 +318,29 @@ import KLAPCore
         }
     }
     func attend(_ ids: [String],expectedAccount:String?=nil) async {
-        guard !busy, !studying else { return }
+        if let task=startAttendance(ids,expectedAccount:expectedAccount) { await task.value }
+    }
+    // Reserve the study lane synchronously so notification navigation can continue
+    // without waiting for the whole study queue or allowing another start.
+    @discardableResult func startAttendance(_ ids: [String],expectedAccount:String?=nil) -> Task<Void,Never>? {
+        guard !busy, !studying else { return nil }
         let ids=ids.reduce(into:[String]()) { if !$1.isEmpty && !$0.contains($1) { $0.append($1) } }
-        guard !ids.isEmpty else { return }
+        guard !ids.isEmpty else { return nil }
         reminderCompletionError=nil
         studyError=nil
         cancelled = false; studying = true; requestNotifications()
         studyQueue=ids
         updateStudyTime(id:studyQueue.first)
         progress = StudyProgress(percent: 0, current: 0, total: ids.count)
+        let account=expectedAccount ?? snapshot.account ?? ""
+        return Task { await runAttendance(ids,expectedAccount:account) }
+    }
+    private func runAttendance(_ ids: [String],expectedAccount:String) async {
         var summary = "수강 작업이 종료되었습니다"
         do {
-            try await studyBridge.run(["Command":"attend", "IDs":ids,"ExpectedAccount":expectedAccount ?? snapshot.account ?? ""]) { [self] event in
+            // A user can cancel immediately after reserving the lane, before launch.
+            if cancelled { throw CancellationError() }
+            try await studyBridge.run(["Command":"attend", "IDs":ids,"ExpectedAccount":expectedAccount]) { [self] event in
                 // Cancellation may race with buffered progress/completion events.
                 guard !cancelled else { return }
                 if event.kind == "error" { studyError=event.error; return }
