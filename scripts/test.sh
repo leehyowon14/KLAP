@@ -44,7 +44,7 @@ run_check '설치 위치와 교체' bash scripts/check-installation.sh
 core_ref="$(cat Bridge/core-ref)"
 bridge_root=".build/cli-$core_ref"
 if [[ -f "$bridge_root/go.mod" ]]; then
-    run_check 'Go Bridge 수강 대기열' bash -c 'cd "$1" && go test ./cmd/klap-mac-bridge' _ "$bridge_root"
+    run_check 'Go Bridge 수강 대기열' bash -c 'cd "$1" && go test ./cmd/klap-core' _ "$bridge_root"
 else
     skip_check 'Go Bridge 수강 대기열' 'Bridge/core-ref에 해당하는 KLAP_cli 소스가 .build에 없습니다.'
 fi

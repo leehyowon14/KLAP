@@ -30,7 +30,7 @@ open dist/KLAP-Dev.app
 - 릴리스 태그와 GitHub Release는 `main`의 배포 커밋을 기준으로 생성합니다.
 - 긴급 수정도 `dev`에 반영하여 두 브랜치의 수정 이력이 누락되지 않도록 합니다.
 
-빌드 시 기본적으로 `../KLAP_cli`의 `Bridge/core-ref` 커밋을 읽습니다. 다른 위치는 `KLAP_CLI_SOURCE`로 지정합니다. 원본 저장소를 수정하지 않고 `.build`에 해당 커밋을 펼칩니다. 앱에는 Go 코어와 EventKit 실행 파일이 포함되므로 실행할 때 별도 CLI 설치가 필요하지 않습니다. 현재 패키지는 빌드한 Mac의 아키텍처를 대상으로 합니다.
+빌드 시 기본적으로 `../KLAP_cli`의 `Bridge/core-ref` 커밋을 읽습니다. 공통 KLAP-core의 다른 위치는 `KLAP_CORE_SOURCE`로 지정합니다 (`KLAP_CLI_SOURCE`도 호환). 원본 저장소를 수정하지 않고 `.build`에 해당 커밋을 펼친 뒤 `cmd/klap-core`를 빌드합니다. Go 브리지와 Swift 정책은 모두 코어에서 관리하며 앱 저장소에서 패치를 적용하거나 소스를 덧붙이지 않습니다. 앱에는 Go 코어와 EventKit 실행 파일이 포함되므로 실행할 때 별도 CLI 설치가 필요하지 않습니다. 현재 패키지는 빌드한 Mac의 아키텍처를 대상으로 합니다.
 
 ## 첫 실행
 
